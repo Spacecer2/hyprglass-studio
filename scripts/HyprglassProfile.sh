@@ -170,7 +170,15 @@ apply_profile() {
         local rule_name
         rule_name=$(echo "$line" | sed -E 's/^\$window_rules\.([^.]+)\.[^=]+=.*/\1/')
         [[ -n "$rule_name" ]] || continue
-        if [[ ! " ${rule_names[*]} " =~ " ${rule_name} " ]]; then
+        local found=0
+        local n
+        for n in "${rule_names[@]}"; do
+            if [[ "$n" == "$rule_name" ]]; then
+                found=1
+                break
+            fi
+        done
+        if [[ $found -eq 0 ]]; then
             rule_names+=("$rule_name")
         fi
     done < <(grep -E '^\$window_rules\.' "$profile_file" 2>/dev/null)
