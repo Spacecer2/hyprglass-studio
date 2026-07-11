@@ -1,9 +1,11 @@
 # HyprGlass Studio
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Hyprland](https://img.shields.io/badge/Hyprland-0.55%2B-blueviolet.svg)
-![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
-![Status](https://img.shields.io/badge/status-active-brightgreen.svg)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/youruser/hyprglass-studio?style=social)](https://github.com/youruser/hyprglass-studio/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/youruser/hyprglass-studio)](https://github.com/youruser/hyprglass-studio/issues)
+[![Last commit](https://img.shields.io/github/last-commit/youruser/hyprglass-studio)](https://github.com/youruser/hyprglass-studio/commits/main)
+[![Hyprland](https://img.shields.io/badge/Hyprland-0.55%2B-blueviolet.svg)](https://hyprland.org)
+[![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
 
 > Apple-style Liquid Glass effects for your Hyprland desktop on Linux.
 
@@ -15,14 +17,21 @@ HyprGlass Studio brings the translucent, depth-aware glass aesthetic introduced 
 
 ---
 
+## Demo
+
+<!-- Replace with an actual screen recording GIF -->
+![HyprGlass Studio Demo](screenshots/demo.gif)
+
+---
+
 ## Features
 
-- **Glass Effect on Windows & Layer Surfaces** — Apply blur, opacity, and color tint to any window or layer-shell surface in real time.
-- **Wallust Color Sync** — Automatically extract dominant colors from your wallpaper and use them to tint glass surfaces for a cohesive look.
-- **Session Profiles** — Switch between presets like *Gaming*, *Coding*, and *Movies* with a single command or hotkey.
-- **Web-based Studio UI** — A local dashboard for live-tuning glass parameters, previewing changes, and managing profiles.
-- **Auto-Switching** — Automatically apply the right profile based on the active application (e.g. game detected → Gaming profile).
-- **JaKooLit Dots Compatible** — Works out of the box with [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots).
+- 🪟 **Glass Effect on Windows & Layer Surfaces** — Apply blur, opacity, and color tint to any window or layer-shell surface in real time.
+- 🎨 **Wallust Color Sync** — Automatically extract dominant colors from your wallpaper and use them to tint glass surfaces for a cohesive look.
+- 🔀 **Session Profiles** — Switch between presets like *Gaming*, *Coding*, and *Movies* with a single command or hotkey.
+- 🖥️ **Web-based Studio UI** — A local dashboard for live-tuning glass parameters, previewing changes, and managing profiles.
+- 🔄 **Auto-Switching** — Automatically apply the right profile based on the active application (e.g. game detected → Gaming profile).
+- 🤝 **JaKooLit Dots Compatible** — Works out of the box with [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots).
 
 ---
 
@@ -47,28 +56,67 @@ HyprGlass Studio brings the translucent, depth-aware glass aesthetic introduced 
 
 ---
 
-## Quick Start
+## Installation
 
-**1. Clone the repository**
+### One-liner install
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/youruser/hyprglass-studio/main/install.sh)
+```
+
+### Manual install
 
 ```bash
 git clone https://github.com/youruser/hyprglass-studio.git ~/hyprglass-studio
 cd ~/hyprglass-studio
-```
-
-**2. Install**
-
-```bash
 ./install.sh
 ```
 
-**3. Launch the Studio UI**
+The install script will:
+
+- Check for Hyprland, `hyprpm`, and Python
+- Build and install the Hyprland glass plugin via `hyprpm`
+- Install the Python package and CLI entry point
+- Optionally enable the user service for auto-start
+
+### JaKooLit Hyprland dots
+
+If you use [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots), HyprGlass Studio is compatible out of the box. The installer detects the JaKooLit layout and adds the default keybindings and startup hook to `~/.config/hypr/UserConfigs/Startup_Apps.conf`. If you prefer to manage startup manually, skip the service option during install.
+
+### Verification
+
+After installation, confirm everything is in place:
+
+```bash
+# Check the CLI is available
+hyprglass-studio --version
+
+# Confirm the Hyprland plugin is loaded
+hyprpm list | grep -i hyprglass
+
+# Check the user service status (if you enabled auto-start)
+systemctl --user status hyprglass-studio
+```
+
+---
+
+## Quick Start
+
+**1. Launch the Studio UI**
 
 ```bash
 hyprglass-studio --studio
 ```
 
-Then open `http://localhost:8420` in your browser to start tuning.
+**2. Open your browser**
+
+Navigate to `http://localhost:8420` to tune blur, opacity, tint, and profiles in real time.
+
+**3. Try a profile**
+
+```bash
+hyprglass-studio --profile Gaming
+```
 
 ---
 
@@ -79,6 +127,13 @@ Then open `http://localhost:8420` in your browser to start tuning.
 - [Auto-Switching Setup](docs/auto-switch.md)
 - [Wallust Integration](docs/wallust.md)
 - [Building from Source](docs/building.md)
+
+---
+
+## Star History
+
+<!-- Replace with actual Star History chart or link -->
+[![Star History Chart](https://api.star-history.com/svg?repos=youruser/hyprglass-studio&type=Date)](https://star-history.com/#youruser/hyprglass-studio&Date)
 
 ---
 

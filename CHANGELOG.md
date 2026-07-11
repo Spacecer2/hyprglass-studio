@@ -1,25 +1,54 @@
 # Changelog
 
+All notable changes to HyprGlass Studio will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [1.0.0] - 2026-07-23
 
 ### Added
-- Initial release
 - HyprGlass plugin integration
-- Session profiles (default, gaming, coding, movies)
-- Wallust color sync
-- Hyprglass Studio web UI
-- Auto-switching based on app type
-- FixHyprglassValues.sh workaround
-- FixHyprglassSource.sh recovery
-- JaKooLit Hyprland dots compatibility
+- Session profiles: default, gaming, coding, and movies
+- Wallust color synchronization for dynamic theming
+- Hyprglass Studio web UI for real-time configuration
+- Auto-switching based on active application type
+- FixHyprglassValues.sh workaround for value persistence
+- FixHyprglassSource.sh recovery for corrupted configs
+- JaKooLit Hyprland dots compatibility layer
+- Command-line interface for headless configuration
+
+### Changed
+- Migrated config parser from shell to Python for reliability
+- Improved glass parameter range validation
 
 ### Fixed
-- Config values reverting (server guard)
-- Preset clobbering individual values
-- Border color conflicts with wallust
-- Glass not visible on windows (opacity requirement)
+- Config values reverting after session reload (server guard)
+- Preset application clobbering individual user values
+- Border color conflicts with wallust color scheme
+- Glass not visible on windows due to opacity requirement
+- Edge case where rapid profile switches caused race conditions
 
 ### Known Issues
-- .conf parser ignores namespaced values (issue #34)
-- Glass effect is subtle by design
-- Requires opacity < 1.0 for windows
+- .conf parser ignores namespaced values ([#34](https://github.com/neo-SSD/hyprglass-studio/issues/34))
+- Glass effect is subtle by design for compositor stability
+- Requires `opacity < 1.0` for windows to display glass effect
+
+## [0.1.0] - 2026-07-11
+
+### Added
+- Initial project scaffolding and repository setup
+- Basic HyprGlass configuration editor
+- Prototype session profile support
+- Initial documentation and README
+
+---
+
+## Contributors
+
+- [@neo](https://github.com/neo) - Project lead and core developer
+
+---
+
+[1.0.0]: https://github.com/neo-SSD/hyprglass-studio/compare/v0.1.0...v1.0.0
+[0.1.0]: https://github.com/neo-SSD/hyprglass-studio/releases/tag/v0.1.0
