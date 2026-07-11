@@ -203,10 +203,15 @@ apply_profile() {
 # Modes
 # ---------------------------------------------------------------------------
 run_one_shot() {
-    local now target
+    local now target parse_err
 
     if [[ ! -f "$SCHEDULE_FILE" ]]; then
         log "Schedule file not found: $SCHEDULE_FILE"
+        return 1
+    fi
+
+    if ! parse_err=$(parse_schedule >/dev/null 2>&1); then
+        log "Failed to parse schedule file: $SCHEDULE_FILE"
         return 1
     fi
 
@@ -232,6 +237,12 @@ run_daemon() {
     while true; do
         if [[ ! -f "$SCHEDULE_FILE" ]]; then
             log "Schedule file missing: $SCHEDULE_FILE. Retrying in 60s..."
+            sleep 60
+            continue
+        fi
+
+        if ! parse_schedule >/dev/null 2>&1; then
+            log "Failed to parse schedule file: $SCHEDULE_FILE. Retrying in 60s..."
             sleep 60
             continue
         fi
