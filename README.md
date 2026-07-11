@@ -9,11 +9,12 @@
 # HyprGlass Studio
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Status: Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](#security-features)
 [![GitHub stars](https://img.shields.io/github/stars/Spacecer2/hyprglass-studio?style=social)](https://github.com/Spacecer2/hyprglass-studio)
 [![GitHub issues](https://img.shields.io/github/issues/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/issues)
 [![Last commit](https://img.shields.io/github/last-commit/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/commits/master)
 [![Hyprland](https://img.shields.io/badge/Hyprland-0.55%2B-blueviolet.svg)](https://hyprland.org)
-[![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
+[![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.10-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
 
 > Apple-style Liquid Glass effects for your Hyprland desktop on Linux.
 
@@ -83,7 +84,7 @@ Release goals and version targets are tracked in [ROADMAP.md](ROADMAP.md#version
 |---|---|---|
 | **Hyprland** | ≥ 0.55 | Required |
 | **hyprpm** | latest | Hyprland plugin manager |
-| **Python** | ≥ 3.8 | Core runtime |
+| **Python** | ≥ 3.10 | Core runtime |
 | **wallust** | latest | Optional — for wallpaper color sync |
 
 ---
@@ -102,8 +103,11 @@ curl -fsSL -o /tmp/hyprglass-install.sh \
 # Inspect the script (recommended)
 less /tmp/hyprglass-install.sh
 
-# Run it
+# Run it interactively
 bash /tmp/hyprglass-install.sh
+
+# Or run it unattended
+bash /tmp/hyprglass-install.sh --yes
 ```
 
 ### Manual install
@@ -114,16 +118,37 @@ cd ~/hyprglass-studio
 ./install.sh
 ```
 
+### Installer options
+
+The fixed installer supports several options:
+
+| Option | Description |
+|--------|-------------|
+| `--yes`, `-y` | Skip all confirmation prompts (unattended install) |
+| `--dry-run` | Show what would be done without making changes |
+| `--skip-plugin` | Skip the `hyprglass` plugin installation via `hyprpm` |
+| `--skip-wallust` | Skip wallust integration checks |
+| `--verbose`, `-v` | Print extra debug information |
+| `--allow-root` | Allow running as root (not recommended; for containers only) |
+| `--help`, `-h` | Show usage information |
+
+### What the installer does
+
 The install script will:
 
-- Check for Hyprland, `hyprpm`, and Python
-- Build and install the Hyprland glass plugin via `hyprpm`
-- Install the Python package and CLI entry point
-- Optionally enable the user service for auto-start
+- Detect JaKooLit Hyprland dots and preserve their structure
+- Verify prerequisites (`hyprctl`, `hyprpm`, Python 3.10+, `jq`, curl/wget)
+- Create timestamped backups of existing configs
+- Install the `hyprglass` Hyprland plugin via `hyprpm`
+- Copy profiles, scripts, and wallust templates
+- Generate `Hyprglass.conf` and a startup fix script if missing
+- Patch `hyprland.conf` safely without overwriting dotfiles
+- Set executable permissions on helper scripts
+- Verify the installation and optionally reload Hyprland
 
 ### JaKooLit Hyprland dots
 
-If you use [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots), HyprGlass Studio is compatible out of the box. The installer detects the JaKooLit layout and adds the default keybindings and startup hook to `~/.config/hypr/UserConfigs/Startup_Apps.conf`. If you prefer to manage startup manually, skip the service option during install.
+If you use [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots), HyprGlass Studio is compatible out of the box. The installer detects the JaKooLit layout and patches the appropriate config files. See [docs/JAKOOLIT.md](docs/JAKOOLIT.md) for detailed integration steps.
 
 ### Verification
 
@@ -138,6 +163,9 @@ hyprpm list | grep -i hyprglass
 
 # Check the installation health
 ~/.config/hypr/scripts/CheckHyprglassStatus.sh
+
+# Validate the generated Hyprglass.conf
+~/.config/hypr/scripts/ValidateHyprglassConf.sh
 ```
 
 ---
@@ -146,7 +174,7 @@ hyprpm list | grep -i hyprglass
 
 **1. Launch the Studio UI**
 
-If you installed via `make install` / package:
+After running the installer:
 
 ```bash
 hyprglass-studio
