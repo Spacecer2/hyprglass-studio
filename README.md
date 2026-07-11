@@ -29,7 +29,7 @@ HyprGlass Studio brings the translucent, depth-aware glass aesthetic introduced 
 - 🪟 **Glass Effect on Windows & Layer Surfaces** — Apply blur, opacity, and color tint to any window or layer-shell surface in real time.
 - 🎨 **Wallust Color Sync** — Automatically extract dominant colors from your wallpaper and use them to tint glass surfaces for a cohesive look.
 - 🔀 **Session Profiles** — Switch between presets like *Gaming*, *Coding*, and *Movies* with a single command or hotkey.
-- 🖥️ **Web-based Studio UI** — A local dashboard for live-tuning glass parameters, previewing changes, and managing profiles.
+- 🖥️ **Web-based Studio UI** — A local dashboard for live-tuning glass parameters, previewing changes, and exporting configs.
 - 🔄 **Auto-Switching** — Automatically apply the right profile based on the active application (e.g. game detected → Gaming profile).
 - 🤝 **JaKooLit Dots Compatible** — Works out of the box with [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots).
 
@@ -98,14 +98,14 @@ If you use [JaKooLit's Hyprland dots](https://github.com/JaKooLit/Hyprland-Dots)
 After installation, confirm everything is in place:
 
 ```bash
-# Check the CLI is available
-hyprglass-studio --version
-
 # Confirm the Hyprland plugin is loaded
 hyprpm list | grep -i hyprglass
 
-# Check the user service status (if you enabled auto-start)
-systemctl --user status hyprglass-studio
+# Confirm the profile switcher is installed
+~/.config/hypr/scripts/HyprglassProfile.sh list
+
+# Check the installation health
+~/.config/hypr/scripts/CheckHyprglassStatus.sh
 ```
 
 ---
@@ -114,18 +114,27 @@ systemctl --user status hyprglass-studio
 
 **1. Launch the Studio UI**
 
+If you installed via `make install` / package:
+
 ```bash
-hyprglass-studio --studio
+hyprglass-studio
+```
+
+From the repository directly:
+
+```bash
+cd ~/hyprglass-studio
+python3 -m src.server --port 8765
 ```
 
 **2. Open your browser**
 
-Navigate to `http://localhost:8765` to tune blur, opacity, tint, and profiles in real time.
+Navigate to `http://localhost:8765` to tune blur, opacity, tint, layer surfaces, and window rules in real time.
 
 **3. Try a profile**
 
 ```bash
-hyprglass-studio --profile Gaming
+~/.config/hypr/scripts/HyprglassProfile.sh apply gaming
 ```
 
 ---
@@ -134,7 +143,7 @@ hyprglass-studio --profile Gaming
 
 - [Configuration Reference](docs/CONFIGURATION.md)
 - [Profiles Guide](docs/PROFILES.md)
-- [Auto-Switching Setup](docs/PROFILES.md#auto-switching-rules)
+- [Auto-Switching Setup](docs/PROFILES.md#auto-switching)
 - [Wallust Integration](docs/WALLUST-INTEGRATION.md)
 - [Building from Source](docs/INSTALLATION.md)
 
