@@ -36,10 +36,10 @@ FORCE=false
 DRY_RUN=false
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-log_info()  { echo -e "\033[0;36m[INFO]\033[0m  $*"; }
-log_warn()  { echo -e "\033[1;33m[WARN]\033[0m  $*"; }
-log_error() { echo -e "\033[0;31m[ERR ]\033[0m  $*" >&2; }
-log_ok()    { echo -e "\033[0;32m[ OK ]\033[0m  $*"; }
+log_info()  { printf '\033[0;36m[INFO]\033[0m  %s\n' "$*"; }
+log_warn()  { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
+log_error() { printf '\033[0;31m[ERR ]\033[0m  %s\n' "$*" >&2; }
+log_ok()    { printf '\033[0;32m[ OK ]\033[0m  %s\n' "$*"; }
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 usage() {
@@ -344,7 +344,7 @@ EOF
 
     # ── Output ───────────────────────────────────────────────────────────────
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo "$profile_content"
+        printf '%s\n' "$profile_content"
         log_ok "Dry run complete. Profile was not written."
         exit 0
     fi
@@ -359,7 +359,7 @@ EOF
     fi
 
     mkdir -p "$(dirname "$OUTPUT_FILE")"
-    echo "$profile_content" > "$OUTPUT_FILE"
+    printf '%s\n' "$profile_content" > "$OUTPUT_FILE"
     chmod 644 "$OUTPUT_FILE"
 
     log_ok "Imported JaKooLit settings to: ${OUTPUT_FILE}"

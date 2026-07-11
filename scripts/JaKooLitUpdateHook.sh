@@ -25,10 +25,10 @@ HYPGLASS_SRC_LINE='source= $UserConfigs/Hyprglass.conf'
 HYPGLASS_EXEC_LINE='exec-once = $HOME/.config/hypr/scripts/FixHyprglassValues.sh'
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-log_info() { echo -e "\033[0;36m[INFO]\033[0m  $*"; }
-log_warn() { echo -e "\033[1;33m[WARN]\033[0m  $*"; }
-log_error() { echo -e "\033[0;31m[ERR ]\033[0m  $*" >&2; }
-log_ok()   { echo -e "\033[0;32m[ OK ]\033[0m  $*"; }
+log_info() { printf '\033[0;36m[INFO]\033[0m  %s\n' "$*"; }
+log_warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
+log_error() { printf '\033[0;31m[ERR ]\033[0m  %s\n' "$*" >&2; }
+log_ok()   { printf '\033[0;32m[ OK ]\033[0m  %s\n' "$*"; }
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 find_latest_backup_dir() {
