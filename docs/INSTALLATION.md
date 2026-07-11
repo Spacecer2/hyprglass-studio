@@ -49,7 +49,7 @@ You should see `hyprglass` in the output.
 
 ```bash
 cd ~
-git clone https://github.com/your-username/hyprglass-studio.git
+git clone https://github.com/Spacecer2/hyprglass-studio.git
 cd hyprglass-studio
 ```
 

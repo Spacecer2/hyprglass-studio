@@ -1,9 +1,9 @@
 # HyprGlass Studio
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/youruser/hyprglass-studio?style=social)](https://github.com/youruser/hyprglass-studio/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/youruser/hyprglass-studio)](https://github.com/youruser/hyprglass-studio/issues)
-[![Last commit](https://img.shields.io/github/last-commit/youruser/hyprglass-studio)](https://github.com/youruser/hyprglass-studio/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/Spacecer2/hyprglass-studio?style=social)](https://github.com/Spacecer2/hyprglass-studio)
+[![GitHub issues](https://img.shields.io/github/issues/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/issues)
+[![Last commit](https://img.shields.io/github/last-commit/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/commits/master)
 [![Hyprland](https://img.shields.io/badge/Hyprland-0.55%2B-blueviolet.svg)](https://hyprland.org)
 [![Python](https://img.shields.io/badge/Python-%E2%89%A5%203.8-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
 
@@ -58,16 +58,26 @@ HyprGlass Studio brings the translucent, depth-aware glass aesthetic introduced 
 
 ## Installation
 
-### One-liner install
+### Quick install
+
+For security, review the install script before running it. You can download it first, inspect it, and then execute it locally:
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/youruser/hyprglass-studio/main/install.sh)
+# Download the installer
+curl -fsSL -o /tmp/hyprglass-install.sh \
+    https://raw.githubusercontent.com/Spacecer2/hyprglass-studio/master/install.sh
+
+# Inspect the script (recommended)
+less /tmp/hyprglass-install.sh
+
+# Run it
+bash /tmp/hyprglass-install.sh
 ```
 
 ### Manual install
 
 ```bash
-git clone https://github.com/youruser/hyprglass-studio.git ~/hyprglass-studio
+git clone https://github.com/Spacecer2/hyprglass-studio.git ~/hyprglass-studio
 cd ~/hyprglass-studio
 ./install.sh
 ```
@@ -110,7 +120,7 @@ hyprglass-studio --studio
 
 **2. Open your browser**
 
-Navigate to `http://localhost:8420` to tune blur, opacity, tint, and profiles in real time.
+Navigate to `http://localhost:8765` to tune blur, opacity, tint, and profiles in real time.
 
 **3. Try a profile**
 
@@ -122,18 +132,17 @@ hyprglass-studio --profile Gaming
 
 ## Documentation
 
-- [Configuration Reference](docs/configuration.md)
-- [Profiles Guide](docs/profiles.md)
-- [Auto-Switching Setup](docs/auto-switch.md)
-- [Wallust Integration](docs/wallust.md)
-- [Building from Source](docs/building.md)
+- [Configuration Reference](docs/CONFIGURATION.md)
+- [Profiles Guide](docs/PROFILES.md)
+- [Auto-Switching Setup](docs/PROFILES.md#auto-switching-rules)
+- [Wallust Integration](docs/WALLUST-INTEGRATION.md)
+- [Building from Source](docs/INSTALLATION.md)
 
 ---
 
 ## Star History
 
-<!-- Replace with actual Star History chart or link -->
-[![Star History Chart](https://api.star-history.com/svg?repos=youruser/hyprglass-studio&type=Date)](https://star-history.com/#youruser/hyprglass-studio&Date)
+View the [star history](https://star-history.com/#Spacecer2/hyprglass-studio&Date) for this project.
 
 ---
 

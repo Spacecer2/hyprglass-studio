@@ -14,7 +14,7 @@ Only the latest version receives security updates. Please ensure you are running
 If you discover a security vulnerability, please report it responsibly:
 
 - **Email:** Create a GitHub issue with the "security" label
-- **Preferred:** Open an issue at [GitHub Issues](https://github.com/hyprglass-studio/hyprglass-studio/issues)
+- **Preferred:** Open an issue at [GitHub Issues](https://github.com/Spacecer2/hyprglass-studio/issues)
 
 Please include:
 - Description of the vulnerability

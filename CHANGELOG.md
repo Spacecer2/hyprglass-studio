@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edge case where rapid profile switches caused race conditions
 
 ### Known Issues
-- .conf parser ignores namespaced values ([#34](https://github.com/neo-SSD/hyprglass-studio/issues/34))
+- .conf parser ignores namespaced values ([#34](https://github.com/Spacecer2/hyprglass-studio/issues))
 - Glass effect is subtle by design for compositor stability
 - Requires `opacity < 1.0` for windows to display glass effect
 
@@ -46,9 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Contributors
 
-- [@neo](https://github.com/neo) - Project lead and core developer
+- HyprGlass Studio maintainers and contributors
 
 ---
 
-[1.0.0]: https://github.com/neo-SSD/hyprglass-studio/compare/v0.1.0...v1.0.0
-[0.1.0]: https://github.com/neo-SSD/hyprglass-studio/releases/tag/v0.1.0
+[1.0.0]: https://github.com/Spacecer2/hyprglass-studio
+[0.1.0]: https://github.com/Spacecer2/hyprglass-studio/releases

@@ -23,7 +23,7 @@ Ensure you have the following installed:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/hyprglass-studio.git
+git clone https://github.com/Spacecer2/hyprglass-studio.git
 cd hyprglass-studio
 
 # 2. Create a virtual environment and install Python dependencies

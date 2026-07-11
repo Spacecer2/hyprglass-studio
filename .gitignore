@@ -1,17 +1,74 @@
+# Python
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
 node_modules/
 dist/
+build/
+*.tsbuildinfo
+
+# Logs
 *.log
+logs/
+
+# Cache / temp
 .cache/
 *.bak
+*.swp
+*.swo
+*~
+.tmp/
+tmp/
 
-# Security
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets & credentials — never commit these
+.env
+.env.*
+!.env.example
+*.secrets
+secrets/
+credentials/
+*.credential
+
+# Crypto / identity
 *.pem
 *.key
 *.cert
+*.crt
 *.p12
 *.pfx
-.DS_Store
-Thumbs.db
+*.der
+*.csr
+*.pub
+id_*
+!id_*_example*
+.ssh/
+known_hosts
+authorized_keys
+ssh_config
+
+# Database / local state
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Project runtime state
+.hyprglass/

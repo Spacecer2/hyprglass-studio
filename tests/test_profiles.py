@@ -1,10 +1,11 @@
-import json
-import pytest
+import re
 from pathlib import Path
+
+import pytest
 
 
 PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
-REQUIRED_KEYS = {"name", "glass", "theme", "decoration"}
+REQUIRED_SECTIONS = {"glass", "theme", "decoration"}
 
 
 def test_profiles_directory_exists():
@@ -18,25 +19,15 @@ def test_default_profile_exists():
 
 
 @pytest.mark.parametrize("profile_path", list(PROFILES_DIR.glob("*.conf")))
-def test_profile_is_valid_json(profile_path):
-    with profile_path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    assert isinstance(data, dict), f"{profile_path.name} should contain a JSON object"
+def test_profile_sets_name(profile_path):
+    content = profile_path.read_text(encoding="utf-8")
+    expected = f"$name = {profile_path.stem}"
+    assert expected in content, f"{profile_path.name} should set $name to {profile_path.stem}"
 
 
 @pytest.mark.parametrize("profile_path", list(PROFILES_DIR.glob("*.conf")))
-def test_profile_has_required_keys(profile_path):
-    with profile_path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    missing = REQUIRED_KEYS - data.keys()
-    assert not missing, f"{profile_path.name} is missing keys: {missing}"
-
-
-@pytest.mark.parametrize("profile_path", list(PROFILES_DIR.glob("*.conf")))
-def test_profile_name_matches_filename(profile_path):
-    with profile_path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    expected_name = profile_path.stem
-    assert data.get("name") == expected_name, (
-        f"{profile_path.name} name should match filename"
-    )
+def test_profile_has_required_sections(profile_path):
+    content = profile_path.read_text(encoding="utf-8")
+    found = {section for section in REQUIRED_SECTIONS if re.search(rf"\${section}\.", content)}
+    missing = REQUIRED_SECTIONS - found
+    assert not missing, f"{profile_path.name} is missing sections: {missing}"
