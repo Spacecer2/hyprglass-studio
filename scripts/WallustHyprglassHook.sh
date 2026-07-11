@@ -3,6 +3,8 @@
 # Wallust hook for HyprGlass Studio
 # Updates hyprglass tint color based on wallpaper colors
 
+set -euo pipefail
+
 # Read wallust-hyprland.conf
 WALLUST_CONF="$HOME/.config/hypr/wallust/wallust-hyprland.conf"
 
