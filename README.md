@@ -68,6 +68,20 @@ Release goals and version targets are tracked in [ROADMAP.md](ROADMAP.md#version
 
 ---
 
+## Security Features
+
+HyprGlass Studio is designed with security in mind. See [SECURITY.md](SECURITY.md) for the full security policy and vulnerability reporting process.
+
+- **Non-root installer** — The installer refuses to run as root or via `sudo` unless explicitly allowed with `--allow-root`, preventing accidental system-wide modifications.
+- **Path validation** — All target paths are verified to live under `$HOME` before any file operation.
+- **Input validation** — User inputs, plugin parameters, and external data are type-checked, sanitized, and validated.
+- **Atomic backups** — Existing configs are backed up with timestamps before modification so you can roll back safely.
+- **No hardcoded secrets** — The codebase is scanned for credentials, API keys, and tokens; secrets are provided via environment variables or secure config files.
+- **Sandboxed plugins** — Plugins run with limited system access, declared capabilities, and user-consent gating.
+- **Safe file operations** — Path-traversal prevention, atomic writes, temporary file cleanup, and restricted permissions where applicable.
+
+---
+
 ## Screenshots
 
 <!-- Replace the paths below with actual screenshots -->
@@ -202,19 +216,37 @@ Navigate to `http://localhost:8765` to tune blur, opacity, tint, layer surfaces,
 ## Documentation
 
 - [Configuration Reference](docs/CONFIGURATION.md)
+- [Installation Guide](docs/INSTALLATION.md)
 - [Profiles Guide](docs/PROFILES.md)
 - [Auto-Switching Setup](docs/PROFILES.md#auto-switching)
+- [Profile Sharing](docs/PROFILE-SHARING.md)
 - [Wallust Integration](docs/WALLUST-INTEGRATION.md)
-- [Building from Source](docs/INSTALLATION.md)
+- [Studio UI Guide](docs/STUDIO-UI.md)
+- [API Reference](docs/API.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Themes Guide](docs/THEMES.md)
+- [Rofi Theme](docs/ROFI-THEME.md)
+- [GPU Monitoring](docs/GPU-MONITOR.md)
+- [Performance Tuning](docs/PERFORMANCE.md)
+- [Migration Guide](docs/MIGRATION.md)
+- [Marketplace](docs/MARKETPLACE.md)
+- [JaKooLit Integration](docs/JAKOOLIT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [FAQ](docs/FAQ.md)
+- [Demo Setup](docs/DEMO.md)
+- [Version Planning](docs/VERSION-PLANNING.md)
 - [Roadmap](ROADMAP.md)
-- [Version Planning](ROADMAP.md#version-planning)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues, propose features, and submit changes.
+Contributions are welcome! Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines on how to report issues, propose features, and submit changes.
+
+> **Branch protection:** The `master` branch is protected. All changes must be submitted through a pull request and reviewed before merging. Direct pushes to `master` are not allowed. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md#pull-request-process) for the full PR process.
 
 ---
 

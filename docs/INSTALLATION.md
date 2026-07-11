@@ -128,6 +128,64 @@ The Studio UI provides a GUI for:
 
 ---
 
+## System Tray Applet
+
+HyprGlass Studio ships with a system tray applet that gives you quick access to profiles, the Studio UI, and a glass-effect toggle.
+
+### Dependencies
+
+- **GTK/AppIndicator mode** (default): `python-gobject`, plus one of:
+  - `libappindicator-gtk3`
+  - `ayatana-appindicator`
+- **Rofi fallback mode**: `rofi`
+
+On Arch Linux:
+
+```bash
+sudo pacman -S python-gobject libappindicator-gtk3 rofi
+```
+
+### Running the Tray Applet
+
+From the repository:
+
+```bash
+~/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+When installed system-wide, the script is copied to:
+
+```bash
+/usr/local/share/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+If the GTK/AppIndicator dependencies are not available, the applet automatically falls back to a rofi menu. You can also force rofi mode explicitly:
+
+```bash
+~/hyprglass-studio/scripts/HyprglassTray.py --rofi
+```
+
+### Autostart
+
+Add the tray applet to your Hyprland startup configuration so it runs on login:
+
+```conf
+exec-once = ~/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+For JaKooLit dots, add it to `~/.config/hypr/UserConfigs/Startup_Apps.conf`.
+
+### Tray Menu Items
+
+| Item | Action |
+|------|--------|
+| **Profiles** | Switch between available HyprGlass profiles |
+| **Open Studio** | Launch the HyprGlass Studio web UI |
+| **Toggle Glass** | Enable or disable glass effects instantly |
+| **Quit** | Close the tray applet |
+
+---
+
 ## Updating
 
 ### How Dotfile Updates Affect Config

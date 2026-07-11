@@ -20,7 +20,7 @@
 #   HG_GPU_LOW_DURATION   Seconds below low threshold before restore (default: 60)
 #   HG_GPU_GAMING_PROFILE Profile to apply on high load (default: gaming)
 
-set -uo pipefail
+set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -49,6 +49,14 @@ log() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     mkdir -p "${LOG_DIR}"
     printf '%s\n' "$msg" >> "${LOG_FILE}"
+}
+
+# Safe wrapper for reading GPU usage that never aborts the monitor loop.
+get_gpu_usage_safe() {
+    local tool="$1"
+    local usage
+    usage=$(get_gpu_usage "$tool" 2>/dev/null) || true
+    printf '%s' "$usage"
 }
 
 usage() {
@@ -170,7 +178,7 @@ run_monitor_loop() {
     local usage previous_profile
 
     while true; do
-        usage=$(get_gpu_usage "$tool")
+        usage=$(get_gpu_usage_safe "$tool")
 
         if [[ -z "$usage" ]]; then
             log "Could not read GPU usage (tool: ${tool}). Skipping this cycle."
@@ -223,7 +231,7 @@ run_one_shot() {
         return 1
     fi
 
-    usage=$(get_gpu_usage "$tool")
+    usage=$(get_gpu_usage_safe "$tool")
     active_profile=$(current_profile)
 
     if [[ -z "$usage" ]]; then
@@ -247,7 +255,7 @@ run_one_shot() {
 show_status() {
     local tool usage active_profile saved_profile
     tool=$(detect_gpu_tool)
-    usage=$(get_gpu_usage "$tool")
+    usage=$(get_gpu_usage_safe "$tool")
     active_profile=$(current_profile)
     saved_profile=$(cat "$STATE_FILE" 2>/dev/null || echo "(none)")
 
