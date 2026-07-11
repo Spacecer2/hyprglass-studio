@@ -38,9 +38,9 @@ brightness=$(( (bg_r * 299 + bg_g * 587 + bg_b * 114) / 1000 ))
 brightness_pct=$((brightness * 100 / 255))
 
 # Determine brightness setting based on wallpaper brightness
-if [ $brightness_pct -lt 20 ]; then
+if [ "$brightness_pct" -lt 20 ]; then
     brightness_setting="1.2"
-elif [ $brightness_pct -lt 50 ]; then
+elif [ "$brightness_pct" -lt 50 ]; then
     brightness_setting="1.0"
 else
     brightness_setting="0.8"

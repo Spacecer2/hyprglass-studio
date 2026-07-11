@@ -35,10 +35,10 @@ JaKooLit's `copy.sh` copies a fresh copy of the dotfiles into `~/.config/hypr/`.
 After running `copy.sh` you will usually find that:
 
 - `hyprctl plugins` still shows `hyprglass` loaded, but the plugin has no active config.
-- `SUPER + G` and scroll bindings no longer work.
+- `SUPER + G` and `SUPER + SHIFT + G` bindings no longer work.
 - Windows no longer get the glass effect.
 
-This is expected. Run the recovery script described in the next section.
+This is expected. Run the recovery hook described in the next section.
 
 ---
 
@@ -82,36 +82,26 @@ hyprctl plugins
 
 ---
 
-## 4. `JaKooLitUpdateHook.sh` usage
+## 4. Running the hook automatically after `copy.sh`
 
-`JaKooLitUpdateHook.sh` is a convenience wrapper that combines a dotfile update with the HyprGlass recovery step. Instead of running `copy.sh` directly, run this hook so recovery happens automatically.
-
-**Typical workflow:**
+`JaKooLitUpdateHook.sh` can be used as the recovery step after a `copy.sh` update. Instead of running `copy.sh` directly and then remembering to recover HyprGlass, run `copy.sh` first and then the hook:
 
 ```bash
-cd ~/hyprglass-studio
-chmod +x JaKooLitUpdateHook.sh
-./JaKooLitUpdateHook.sh
+cd ~/Hyprland-Dots
+./copy.sh
+
+# Then restore HyprGlass integration
+~/.config/hypr/scripts/JaKooLitUpdateHook.sh
+hyprctl reload
 ```
 
-**What the hook usually does:**
-
-1. Backs up your current `~/.config/hypr/` directory.
-2. Runs JaKooLit's `copy.sh` from its known location.
-3. Runs `FixHyprglassSource.sh` immediately after `copy.sh` finishes.
-4. Reloads Hyprland.
-
-If your JaKooLit repo is in a different location, edit the hook and set the correct path:
+You can also create a personal alias that performs both steps:
 
 ```bash
-JAKOOLit_DOTS_DIR="$HOME/Hyprland-Dots"
+alias update-dots='cd ~/Hyprland-Dots && ./copy.sh && ~/.config/hypr/scripts/JaKooLitUpdateHook.sh && hyprctl reload'
 ```
 
-You can also call the hook from your own update alias:
-
-```bash
-alias update-dots='~/hyprglass-studio/JaKooLitUpdateHook.sh'
-```
+> **Note:** The bundled hook does not invoke `copy.sh` for you; it only restores HyprGlass pieces after `copy.sh` has run.
 
 ---
 
@@ -138,7 +128,7 @@ If you prefer to update JaKooLit manually, use this order:
 
    ```bash
    cd ~/hyprglass-studio
-   ./FixHyprglassSource.sh
+   ./scripts/JaKooLitUpdateHook.sh
    ```
 
 4. **Reload Hyprland.**
@@ -165,10 +155,10 @@ If you prefer to update JaKooLit manually, use this order:
 
 **Cause:** `copy.sh` replaced the HyprGlass entries in your Hyprland config.
 
-**Fix:** Run the recovery script and reload:
+**Fix:** Run the recovery hook and reload:
 
 ```bash
-~/hyprglass-studio/FixHyprglassSource.sh
+~/hyprglass-studio/scripts/JaKooLitUpdateHook.sh
 hyprctl reload
 ```
 
@@ -180,17 +170,17 @@ Check whether `hyprland.conf` still sources your glass config:
 grep -i hyprglass ~/.config/hypr/hyprland.conf
 ```
 
-If nothing is returned, run `FixHyprglassSource.sh`.
+If nothing is returned, run `JaKooLitUpdateHook.sh` or re-run `install.sh --yes`.
 
 ### Keybindings no longer work
 
 Check whether the glass keybindings are still present:
 
 ```bash
-grep -i "hyprglass\|glass" ~/.config/hypr/keybindings.conf
+grep -i "hyprglass\|glass" ~/.config/hypr/UserConfigs/Keybinds.conf
 ```
 
-If they are gone, run `FixHyprglassSource.sh`.
+If they are gone, re-run `install.sh --yes` to re-add them.
 
 ### Plugin is no longer loaded
 
@@ -217,7 +207,7 @@ Then run the recovery script again.
 
 ### Restore from a backup
 
-If recovery fails, restore the backup created by `BackupConfig.sh`:
+If recovery fails, restore the backup created by the installer or `BackupConfig.sh`:
 
 ```bash
 cp ~/.config/hypr/backups/hyprland.conf.bak ~/.config/hypr/hyprland.conf
@@ -225,7 +215,7 @@ cp ~/.config/hypr/backups/hyprland.conf.bak ~/.config/hypr/hyprland.conf
 hyprctl reload
 ```
 
-Then re-run `FixHyprglassSource.sh` to ensure the latest HyprGlass entries are present.
+Then re-run `JaKooLitUpdateHook.sh` or `install.sh --yes` to ensure the latest HyprGlass entries are present.
 
 ---
 
@@ -241,7 +231,7 @@ Place HyprGlass-specific settings in files that are **sourced** by `hyprland.con
 - `~/.config/hypr/UserDecorations.conf` — decoration tweaks that survive wallust
 - `~/.config/hypr/hyprglass-rules.conf` — glass window rules
 
-`FixHyprglassSource.sh` only needs to re-add a single `source = ...` line after `copy.sh`, rather than patch many inline values.
+`JaKooLitUpdateHook.sh` only needs to re-add a single `source = ...` line after `copy.sh`, rather than patch many inline values.
 
 ### Always update through the hook
 
@@ -253,11 +243,14 @@ Run `BackupConfig.sh` before any dotfile update. Keep several backups so you can
 
 ### Save presets and profiles
 
-Use HyprGlass profiles to export your tuned effects:
+Use HyprGlass profiles to preserve your tuned effects:
 
 ```bash
-hyprglass-profile save my-daily
-hyprglass-profile export my-daily
+# Save current settings as a profile (copy the active Hyprglass.conf to the profiles directory)
+cp ~/.config/hypr/UserConfigs/Hyprglass.conf ~/.config/hypr/hyprglass-profiles/my-daily.conf
+
+# Edit the copied file so $name matches the filename, then apply it
+~/.config/hypr/scripts/HyprglassProfile.sh apply my-daily
 ```
 
 Store exported profiles outside `~/.config/hypr/` (for example, in `~/hyprglass-studio/profiles/`) so `copy.sh` cannot delete them.
@@ -268,11 +261,11 @@ Instead of editing `windowrules.conf` or `keybindings.conf` directly, add glass 
 
 ### Summary checklist
 
-- [ ] `FixHyprglassSource.sh` is executable and tested.
-- [ ] `JaKooLitUpdateHook.sh` is used for every dotfile update.
-- [ ] `BackupConfig.sh` is run before `copy.sh`.
+- [ ] `JaKooLitUpdateHook.sh` is executable and tested.
+- [ ] `JaKooLitUpdateHook.sh` is run after every `copy.sh` update.
+- [ ] A backup is made before `copy.sh`.
 - [ ] HyprGlass settings live in sourced files outside JaKooLit's main files.
-- [ ] Presets/profiles are exported and stored outside `~/.config/hypr/`.
+- [ ] Profiles are copied outside `~/.config/hypr/` for safe keeping.
 
 ---
 

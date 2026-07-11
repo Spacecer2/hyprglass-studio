@@ -2,8 +2,8 @@
 
 The guard is designed to run as a long-lived daemon, so these tests source the
 script in isolated bash processes and exercise individual functions with mocked
-paths.  To avoid executing the daemon loop, the helper strips the trailing
-`main "$@"` call from the sourced script.
+paths.  The script already guards the daemon loop with
+`if [[ "${BASH_SOURCE[0]}" == "${0}" ]]` so sourcing only loads functions.
 """
 from __future__ import annotations
 
@@ -18,30 +18,19 @@ VALIDATOR = PROJECT_ROOT / "scripts" / "ValidateHyprglassConf.sh"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
-def _source_with_main_removed(tmp_path: Path) -> Path:
-    """Return a temp copy of the guard script with the main call removed."""
-    content = GUARD_SCRIPT.read_text(encoding="utf-8")
-    # Comment out the final "main \"$@\"" line so sourcing only loads functions.
-    content = content.replace('main "$@"', '# main "$@"')
-    dest = tmp_path / "HyprglassGuard_sourced.sh"
-    dest.write_text(content, encoding="utf-8")
-    return dest
-
-
 def run_guard_function(tmp_path: Path, setup: str, func_call: str) -> subprocess.CompletedProcess:
-    """Source HyprglassGuard.sh (without running main), run setup, then call a function.
+    """Source HyprglassGuard.sh, run setup, then call a function.
 
     Paths are overridden so the guard never touches the user's real ~/.config.
     """
-    sourced = _source_with_main_removed(tmp_path)
     script = f"""
 set -euo pipefail
 
 # Override guard paths before sourcing.
 export XDG_CONFIG_HOME="{tmp_path}"
 
-# Source the guard script but do not run main().
-source "{sourced}"
+# Source the guard script but do not run main() because we are sourcing it.
+source "{GUARD_SCRIPT}"
 
 # Disable real notifications.
 NOTIFIER="/bin/true"
@@ -81,11 +70,10 @@ def test_validate_conf_passes_when_validator_missing(tmp_path):
     conf = tmp_path / "hypr" / "UserConfigs" / "Hyprglass.conf"
     conf.parent.mkdir(parents=True)
     conf.write_text("invalid", encoding="utf-8")
-    sourced = _source_with_main_removed(tmp_path)
     script = f"""
 set -euo pipefail
 export XDG_CONFIG_HOME="{tmp_path}"
-source "{sourced}"
+source "{GUARD_SCRIPT}"
 VALIDATOR="/nonexistent/ValidateHyprglassConf.sh"
 validate_conf
 """
@@ -164,12 +152,11 @@ def test_notify_runs_notifier_when_available(tmp_path):
     notifier = tmp_path / "notifier.sh"
     notifier.write_text("#!/bin/sh\necho notified $@\n", encoding="utf-8")
     notifier.chmod(0o755)
-    sourced = _source_with_main_removed(tmp_path)
 
     script = f"""
 set -euo pipefail
 export XDG_CONFIG_HOME="{tmp_path}"
-source "{sourced}"
+source "{GUARD_SCRIPT}"
 NOTIFIER="{notifier}"
 notify test-event "test message"
 """

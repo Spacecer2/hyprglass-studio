@@ -1,3 +1,11 @@
+```
+╔════════════════════════════════════════════════════════════╗
+║     HyprGlass Studio — Liquid Glass for Hyprland          ║
+╚════════════════════════════════════════════════════════════╝
+```
+
+> Real-time Liquid Glass effects for the Hyprland Wayland compositor.
+
 # HyprGlass Studio
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,6 +22,30 @@
 ## What is HyprGlass Studio?
 
 HyprGlass Studio brings the translucent, depth-aware glass aesthetic introduced in Apple's Liquid Glass design language to the Hyprland Wayland compositor. It applies real-time blur, tint, and transparency to windows and layer surfaces, syncs colors from your wallpaper, and gives you a browser-based Studio UI to tune every parameter live.
+
+---
+
+## Vision
+
+HyprGlass Studio is more than a blur plugin — it's a step toward a future where your desktop feels alive, adaptive, and unmistakably yours.
+
+- **Short-term (v1.x):** Rock-solid stability, polished profiles, and seamless [wallust](https://codeberg.org/explosion-mental/wallust) color syncing that makes every wallpaper feel like a fresh theme.
+- **Mid-term (v2.x):** A ground-up plugin rewrite for better performance, lower latency, and deeper Wayland-native integration — starting with Hyprland and growing from there.
+- **Long-term (v3.x+):** AI-powered adaptive glass that reads context and mood, a community marketplace for one-click profiles, and first-class support for the broader Wayland compositor ecosystem.
+
+The goal is simple: **glass that knows you.**
+
+---
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features, milestones, and current status.
+
+---
+
+## Version Planning
+
+Release goals and version targets are tracked in [ROADMAP.md](ROADMAP.md#version-planning).
 
 ---
 
@@ -146,6 +178,15 @@ Navigate to `http://localhost:8765` to tune blur, opacity, tint, layer surfaces,
 - [Auto-Switching Setup](docs/PROFILES.md#auto-switching)
 - [Wallust Integration](docs/WALLUST-INTEGRATION.md)
 - [Building from Source](docs/INSTALLATION.md)
+- [Roadmap](ROADMAP.md)
+- [Version Planning](ROADMAP.md#version-planning)
+- [Contributing](CONTRIBUTING.md)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues, propose features, and submit changes.
 
 ---
 

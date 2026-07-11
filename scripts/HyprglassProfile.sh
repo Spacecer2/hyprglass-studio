@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # HyprglassProfile.sh - Profile switching for Hyprglass plugin
 # Profiles are .conf files using Hyprland-style $-prefixed variables.
-# Usage: HyprglassProfile.sh {list|apply|current|menu|next|export|import|import-from-url|theme|theme-list|theme-current}
+# Usage: HyprglassProfile.sh {list|apply|current|menu|next|export|import|import-from-url|marketplace|theme|theme-list|theme-current}
 
 set -euo pipefail
+shopt -s nullglob
 
 # Config
 PROFILES_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprglass-profiles"
@@ -23,6 +24,13 @@ ROFI_THEME="${ROFI_THEME:-${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes/rofi-hyp
 THEMES_DIR="$PROFILES_DIR/themes"
 # Fallback to script directory if no themes dir
 [[ -d "$THEMES_DIR" ]] || THEMES_DIR="$SCRIPT_DIR/profiles/themes"
+
+# Marketplace registry and bundled community profiles
+COMMUNITY_DIR="$PROFILES_DIR/community"
+REGISTRY_FILE="$PROFILES_DIR/registry.json"
+# Fallback to the source tree when running from the repository
+[[ -d "$COMMUNITY_DIR" ]] || COMMUNITY_DIR="$SCRIPT_DIR/../profiles/community"
+[[ -f "$REGISTRY_FILE" ]] || REGISTRY_FILE="$SCRIPT_DIR/../profiles/registry.json"
 
 # Colors
 RED='\033[0;31m'
@@ -72,26 +80,133 @@ validate_profile_name() {
     [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]]
 }
 
-# Reject values that contain shell metacharacters or newlines. Even though
-# values are passed directly to hyprctl, this guard protects against future
-# refactoring mistakes and hostile config files.
+# Reject values that contain shell/control characters. Values are passed as
+# quoted arguments to hyprctl, so Hyprland regex metacharacters ($, (), [],
+# {}, ^, +, ?) are intentionally allowed.
 validate_value() {
     local value="$1"
-    if [[ "$value" =~ [$'\n\r`|;&$(){}[\\]<>!'] ]]; then
+    if [[ "$value" =~ [$'\n\r`\\|;&<>'] ]]; then
         warn "Skipping unsafe value: ${value:0:40}"
         return 1
     fi
     return 0
 }
 
-# Validate a profile file using ValidateHyprglassConf.sh.
+# Validate a profile file for correct Hyprglass profile syntax.
 validate_profile_file() {
     local file="$1"
-    [[ -x "$VALIDATOR" ]] || die "Validator not found or not executable: $VALIDATOR"
+    local line_no=0 errors=0
+
     info "Validating profile file..."
-    if ! "$VALIDATOR" "$file"; then
-        die "Profile validation failed: $(basename "$file")"
+
+    # Required identity fields.
+    local name
+    name=$(get_var "$file" "name")
+    if [[ -z "$name" ]]; then
+        warn "Missing required field: \$name"
+        errors=$((errors + 1))
     fi
+
+    # Known numeric fields and ranges.
+    declare -A ranges=(
+        [glass.blur_strength]="0 10"
+        [glass.blur_iterations]="1 5"
+        [glass.refraction_strength]="0 2"
+        [glass.chromatic_aberration]="0 3"
+        [glass.fresnel_strength]="0 2"
+        [glass.specular_strength]="0 2"
+        [glass.glass_opacity]="0 1"
+        [glass.edge_thickness]="0 1"
+        [glass.lens_distortion]="0 1"
+        [decoration.active_opacity]="0 1"
+        [decoration.inactive_opacity]="0 1"
+        [decoration.fullscreen_opacity]="0 1"
+    )
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line_no=$((line_no + 1))
+        # Skip blanks and comments.
+        [[ -z "${line//[[:space:]]/}" ]] && continue
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+        # Every active line must be a $-prefixed assignment.
+        if [[ ! "$line" =~ ^\$[a-zA-Z0-9_.-]+[[:space:]]*= ]]; then
+            warn "Invalid syntax on line $line_no: $line"
+            errors=$((errors + 1))
+            continue
+        fi
+
+        # Reject unsafe values.
+        local value
+        value=$(echo "$line" | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*$//')
+        if ! validate_value "$value"; then
+            errors=$((errors + 1))
+        fi
+
+        # Validate known numeric ranges.
+        local key
+        key=$(echo "$line" | sed -E 's/^\$([a-zA-Z0-9_.-]+)[[:space:]]*=.*/\1/')
+        if [[ -n "${ranges[$key]:-}" ]]; then
+            local lo hi
+            read -r lo hi <<< "${ranges[$key]}"
+            if ! [[ "$value" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+                warn "$key must be numeric, got '$value'"
+                errors=$((errors + 1))
+            elif ! awk -v v="$value" -v lo="$lo" -v hi="$hi" 'BEGIN { exit !(v+0 >= lo && v+0 <= hi) }'; then
+                warn "$key must be between $lo and $hi, got $value"
+                errors=$((errors + 1))
+            fi
+        fi
+    done < "$file"
+
+    if (( errors > 0 )); then
+        die "Profile validation failed: $(basename "$file") ($errors error(s))"
+    fi
+}
+
+# Convert a theme key like "dark.brightness" to Hyprland's "dark:brightness".
+theme_key_to_hyprctl() {
+    local key="$1"
+    # Replace only the first dot with a colon (namespace:key).
+    echo "${key/./:}"
+}
+
+# Apply per-rule overrides defined as $window_rules.<name>.overrides.*.
+apply_rule_overrides() {
+    local file="$1"
+
+    grep -E '^\$window_rules\.([^.]+)\.overrides\.' "$file" 2>/dev/null | while IFS= read -r line; do
+        local rule_name key value
+        rule_name=$(echo "$line" | sed -E 's/^\$window_rules\.([^.]+)\.overrides\.[^=]+=.*/\1/')
+        key=$(echo "$line" | sed -E 's/^\$window_rules\.([^.]+)\.overrides\.([^=]+)=.*/\2/' | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
+        value=$(echo "$line" | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*$//')
+        [[ -n "$key" ]] || continue
+        validate_value "$value" || continue
+
+        local hypr_key=""
+        case "$key" in
+            enabled|default_theme|default_preset|blur_strength|blur_iterations|refraction_strength|chromatic_aberration|fresnel_strength|specular_strength|glass_opacity|edge_thickness|lens_distortion|tint_color)
+                hypr_key="plugin:hyprglass:$key"
+                ;;
+            active_opacity|inactive_opacity|fullscreen_opacity|rounding|shadow|drop_shadow|shadow_range|shadow_render_power)
+                hypr_key="decoration:$key"
+                ;;
+            brightness|contrast|saturation|vibrancy|vibrancy_darkness|adaptive_dim|adaptive_boost)
+                # Theme overrides without a namespace default to the dark theme.
+                hypr_key="dark:$key"
+                ;;
+            dark.*|light.*)
+                hypr_key=$(theme_key_to_hyprctl "$key")
+                ;;
+            *)
+                warn "Unknown override key '$key' for rule '$rule_name'; skipping"
+                continue
+                ;;
+        esac
+
+        hyprctl keyword "$hypr_key" "$value" >/dev/null 2>&1 || true
+        sleep 0.05
+    done
 }
 
 # Validate the written Hyprglass.conf if it exists.
@@ -111,7 +226,9 @@ collect_profiles() {
         [[ -f "$f" ]] || continue
         profiles+=("$f")
     done
-    printf '%s\n' "${profiles[@]}"
+    if ((${#profiles[@]} > 0)); then
+        printf '%s\n' "${profiles[@]}" | sort
+    fi
 }
 
 list_profiles() {
@@ -181,7 +298,7 @@ apply_profile() {
         value=$(echo "$line" | sed -E 's/^[^=]+=\s*//' | sed -E 's/[[:space:]]+$//')
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
-        hyprctl keyword "$key" "$value" >/dev/null 2>&1 || true
+        hyprctl keyword "$(theme_key_to_hyprctl "$key")" "$value" >/dev/null 2>&1 || true
         sleep 0.05
     done
 
@@ -233,6 +350,9 @@ apply_profile() {
             sleep 0.05
         fi
     done
+
+    # Apply per-rule overrides after the base profile.
+    apply_rule_overrides "$profile_file"
 
     # Save current profile
     echo "$profile_name" > "$CURRENT_PROFILE_CACHE"
@@ -410,6 +530,58 @@ import_from_url() {
     import_profile "$tmp_file"
 }
 
+# Locate the marketplace registry, preferring the installed copy.
+find_registry() {
+    if [[ -f "$REGISTRY_FILE" ]]; then
+        echo "$REGISTRY_FILE"
+        return 0
+    fi
+    die "Marketplace registry not found: $REGISTRY_FILE"
+}
+
+# Locate the bundled community profiles directory.
+find_community_dir() {
+    if [[ -d "$COMMUNITY_DIR" ]]; then
+        echo "$COMMUNITY_DIR"
+        return 0
+    fi
+    die "Community profiles directory not found: $COMMUNITY_DIR"
+}
+
+marketplace_list() {
+    local registry
+    registry=$(find_registry)
+
+    info "Available marketplace profiles:"
+    if command -v jq &>/dev/null; then
+        jq -r '.profiles[] | "  \(.name) - \(.description)"' "$registry"
+    elif command -v python3 &>/dev/null; then
+        python3 -c "import json; d=json.load(open('$registry')); [print(f'  {p[\"name\"]} - {p[\"description\"]}') for p in d['profiles']]"
+    else
+        die "jq or python3 is required to read the marketplace registry"
+    fi
+}
+
+marketplace_install() {
+    local profile_name="$1"
+
+    validate_profile_name "$profile_name" || die "Invalid profile name: '$profile_name'"
+
+    local registry community_dir
+    registry=$(find_registry)
+    community_dir=$(find_community_dir)
+
+    local source_file="$community_dir/${profile_name}.conf"
+    [[ -f "$source_file" ]] || die "Marketplace profile '$profile_name' not found in $community_dir"
+
+    ensure_dirs
+
+    local target_file="$PROFILES_DIR/${profile_name}.conf"
+    cp "$source_file" "$target_file" || die "Failed to install profile to '$target_file'"
+    info "Installed marketplace profile: $profile_name"
+    info "Apply it with: $(basename "$0") apply $profile_name"
+}
+
 # Collect theme files into an array.
 collect_themes() {
     local themes=()
@@ -417,7 +589,9 @@ collect_themes() {
         [[ -f "$f" ]] || continue
         themes+=("$f")
     done
-    printf '%s\n' "${themes[@]}"
+    if ((${#themes[@]} > 0)); then
+        printf '%s\n' "${themes[@]}" | sort
+    fi
 }
 
 list_themes() {
@@ -481,6 +655,7 @@ apply_theme() {
     local theme_file="$THEMES_DIR/${theme_name}.conf"
 
     [[ -f "$theme_file" ]] || die "Theme '$theme_name' not found"
+    validate_profile_file "$theme_file"
 
     local name desc
     name=$(get_var "$theme_file" "name")
@@ -501,7 +676,7 @@ apply_theme() {
         value=$(echo "$line" | sed -E 's/^[^=]+=\s*//' | sed -E 's/[[:space:]]+$//')
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
-        hyprctl keyword "$key" "$value" >/dev/null 2>&1 || true
+        hyprctl keyword "$(theme_key_to_hyprctl "$key")" "$value" >/dev/null 2>&1 || true
         sleep 0.05
     done
 
@@ -523,16 +698,15 @@ apply_theme() {
     # Save current theme
     echo "$theme_name" > "$CURRENT_THEME_CACHE"
 
-    if command -v notify-send &>/dev/null; then
-        notify-send -i preferences-desktop-theme -u low \
-            "Hyprglass Theme" "Applied: $name" 2>/dev/null || true
+    if [[ -x "$NOTIFIER" ]]; then
+        "$NOTIFIER" profile-switch "Theme applied: $name" 2>/dev/null || true
     fi
 
     info "Theme applied successfully"
 }
 
 usage() {
-    echo "Usage: $(basename "$0") {list|apply <profile>|current|menu|next|export <profile> [file]|import <file>|import-from-url <url>|theme <name>|theme-list|theme-current}"
+    echo "Usage: $(basename "$0") {list|apply <profile>|current|menu|next|export <profile> [file]|import <file>|import-from-url <url>|marketplace list|marketplace install <name>|theme <name>|theme-list|theme-current}"
     echo ""
     echo "Commands:"
     echo "  list                          List available profiles"
@@ -543,6 +717,8 @@ usage() {
     echo "  export <profile> [file]       Export a profile to stdout or file"
     echo "  import <file>                 Import a profile into $PROFILES_DIR"
     echo "  import-from-url <url>         Download and import a profile"
+    echo "  marketplace list              List bundled community marketplace profiles"
+    echo "  marketplace install <name>    Install a community profile into $PROFILES_DIR"
     echo "  theme <name>                  Apply a theme preset"
     echo "  theme-list                    List available theme presets"
     echo "  theme-current                 Show current theme preset"
@@ -582,6 +758,21 @@ main() {
         import-from-url)
             [[ -n "${2:-}" ]] || die "URL required"
             import_from_url "$2"
+            ;;
+        marketplace)
+            case "${2:-}" in
+                list)
+                    marketplace_list
+                    ;;
+                install)
+                    [[ -n "${3:-}" ]] || die "Profile name required"
+                    marketplace_install "$3"
+                    ;;
+                *)
+                    echo "Usage: $(basename "$0") marketplace {list|install <name>}"
+                    exit 1
+                    ;;
+            esac
             ;;
         theme)
             [[ -n "${2:-}" ]] || die "Theme name required"

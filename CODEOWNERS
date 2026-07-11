@@ -1,0 +1,8 @@
+# Code owners for hyprglass-studio
+
+* @Spacecer2
+
+docs/ @Spacecer2
+.github/workflows/ @Spacecer2
+scripts/ @Spacecer2
+src/ @Spacecer2
