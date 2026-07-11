@@ -1,6 +1,6 @@
 # Session Profiles
 
-Profiles are named collections of glass settings that let you switch between different visual configurations instantly. Each profile stores values for blur, opacity, saturation, and other glass parameters.
+Profiles are named collections of glass settings that let you switch between different visual configurations instantly. Each profile is a Hyprland-style `.conf` file using `$`-prefixed variables. Profiles are applied at runtime with the `HyprglassProfile.sh` helper.
 
 ## Built-in Profiles
 
@@ -11,281 +11,257 @@ Profiles are named collections of glass settings that let you switch between dif
 | `coding` | Subtle glass with high readability. Reduced blur, higher contrast text. |
 | `movies` | Minimal glass, cinema mode. Near-transparent overlays to avoid distraction. |
 
+## Profile Storage
+
+Installed profiles live in:
+
+```
+~/.config/hypr/hyprglass-profiles/
+```
+
+The installer copies the bundled profiles there. You can add your own `.conf` files to the same directory.
+
 ## Profile File Format
 
-Profiles are stored as JSON or YAML in `~/.config/hyprglass/profiles/`.
+Profiles use Hyprland configuration syntax with `$`-prefixed namespaced variables.
 
-### JSON Example
+### Minimal Example
 
-```json
-{
-  "name": "coding",
-  "description": "Subtle glass for focused work",
-  "blur": {
-    "enabled": true,
-    "size": 3,
-    "passes": 1,
-    "noise": 0.0,
-    "contrast": 0.9,
-    "brightness": 0.8,
-    "vibrancy": 0.2,
-    "vibrancy_darkness": 0.2
-  },
-  "opacity": {
-    "active_opacity": 0.92,
-    "inactive_opacity": 0.88,
-    "fullscreen_opacity": 1.0
-  },
-  "decoration": {
-    "rounding": 8,
-    "shadow": {
-      "enabled": false
-    }
-  },
-  "animation": {
-    "speed": 4,
-    "style": "slide"
-  },
-  "saturation": 0.95
-}
+```conf
+# HyprGlass Studio profile
+
+# Profile identity
+$name = coding
+$version = 1.0.0
+$inherits = default
+
+# Metadata
+$metadata.author = Your Name
+$metadata.description = Subtle glass for focused work
+
+# Glass effect settings
+$glass.blur_strength = 1.5
+$glass.blur_iterations = 1
+$glass.refraction_strength = 0.4
+$glass.chromatic_aberration = 0.1
+$glass.fresnel_strength = 0.3
+$glass.specular_strength = 0.2
+$glass.glass_opacity = 0.8
+$glass.edge_thickness = 0.05
+$glass.lens_distortion = 0.1
+
+# Theme settings
+$theme.dark.brightness = 1.05
+$theme.dark.contrast = 1.3
+$theme.dark.saturation = 1.0
+$theme.dark.vibrancy = 0.5
+$theme.dark.vibrancy_darkness = 0.3
+$theme.dark.adaptive_dim = 0.4
+$theme.dark.adaptive_boost = 0.2
+
+# Decoration settings
+$decoration.active_opacity = 0.88
+$decoration.inactive_opacity = 0.78
+
+# Window rules
+$window_rules.fullscreen.match = fullscreen:1
+$window_rules.fullscreen.action = disable
+$window_rules.fullscreen.reason = Fullscreen windows - glass disabled for unobstructed view
+
+$window_rules.fallback.action = default
+$window_rules.fallback.reason = All other windows use the profile defaults
 ```
 
-### YAML Example
+### Namespaces
 
-```yaml
-name: coding
-description: Subtle glass for focused work
-blur:
-  enabled: true
-  size: 3
-  passes: 1
-  noise: 0.0
-  contrast: 0.9
-  brightness: 0.8
-  vibrancy: 0.2
-  vibrancy_darkness: 0.2
-opacity:
-  active_opacity: 0.92
-  inactive_opacity: 0.88
-  fullscreen_opacity: 1.0
-decoration:
-  rounding: 8
-  shadow:
-    enabled: false
-animation:
-  speed: 4
-  style: slide
-saturation: 0.95
-```
+| Namespace | Maps to | Example |
+|-----------|---------|---------|
+| `$glass.*` | `plugin:hyprglass:*` | `$glass.blur_strength` → `plugin:hyprglass:blur_strength` |
+| `$theme.dark.*` / `$theme.light.*` | `dark:*` / `light:*` | `$theme.dark.brightness` → `dark:brightness` |
+| `$decoration.*` | `decoration:*` | `$decoration.active_opacity` → `decoration:active_opacity` |
+| `$window_rules.<name>.*` | `windowrulev2` tags | See [Window Rules](#window-rules) below |
 
 ## Switching Profiles
 
-### Keybind
+### Keybinds
+
+The installer adds these keybindings (JaKooLit layout uses `Keybinds.conf`):
 
 ```
-SUPER + SHIFT + H     Cycle through profiles
-SUPER + CTRL + H      Reset to default profile
+SUPER + G             Cycle to next profile
+SUPER + SHIFT + G     Open rofi profile menu
 ```
 
 ### Rofi Menu
 
 ```bash
-hyprglass-profile rofi
+~/.config/hypr/scripts/HyprglassProfile.sh menu
 ```
 
-Displays an interactive menu of available profiles.
-
-### Hyprglass Studio UI
-
-Open Hyprglass Studio and select a profile from the Profiles panel. Changes apply immediately.
+Displays an interactive menu of available profiles using the bundled rofi theme.
 
 ### Command Line
 
 ```bash
+# List profiles
+~/.config/hypr/scripts/HyprglassProfile.sh list
+
 # Apply a profile
-hyprglass-profile apply gaming
+~/.config/hypr/scripts/HyprglassProfile.sh apply gaming
 
-# Show current profile
-hyprglass-profile current
+# Show the currently active profile
+~/.config/hypr/scripts/HyprglassProfile.sh current
 
-# List all available profiles
-hyprglass-profile list
-
-# Create a new profile from current settings
-hyprglass-profile save my-profile
+# Cycle to the next profile
+~/.config/hypr/scripts/HyprglassProfile.sh next
 ```
 
-## Auto-Switching Rules
+### Hyprglass Studio UI
 
-Hyprglass can automatically switch profiles based on the active window. Rules are defined in `~/.config/hyprglass/auto-rules.json`:
+The Studio UI exports full configuration snapshots, but it does not save or load named `.conf` profiles directly. Use `HyprglassProfile.sh` for profile switching, or copy an exported `.conf` into `~/.config/hypr/hyprglass-profiles/`.
 
-```json
-[
-  {
-    "match": {
-      "class": "^(steam_app_.*)$"
-    },
-    "profile": "gaming",
-    "priority": 100
-  },
-  {
-    "match": {
-      "class": "^(mpv|vlc|celluloid)$"
-    },
-    "profile": "movies",
-    "priority": 90
-  },
-  {
-    "match": {
-      "class": "^(firefox|google-chrome|chromium|brave)$"
-    },
-    "profile": "default",
-    "priority": 50
-  },
-  {
-    "match": {
-      "fullscreen": true
-    },
-    "profile": "gaming",
-    "priority": 80
-  },
-  {
-    "match": {
-      "class": "^(kitty|alacritty|foot|wezterm)$"
-    },
-    "profile": "coding",
-    "priority": 60
-  }
-]
+## Auto-Switching
+
+Automatic profile switching is provided by `HyprglassGPUMonitor.sh` (GPU-load based) and by the per-window rules inside each profile. There is no separate `auto-rules.json` file.
+
+### GPU-Driven Auto-Switch
+
+`HyprglassGPUMonitor.sh` polls GPU utilization and switches to the `gaming` profile when load is high, then restores the previous profile when load drops. See [GPU-MONITOR.md](GPU-MONITOR.md) for setup and environment variables.
+
+### Window-Rule-Driven Auto-Switch
+
+Each profile can contain `$window_rules` entries that tag windows for the plugin. The action determines which tag is applied:
+
+| Action | Tag applied | Effect |
+|--------|-------------|--------|
+| `disable` | `+hyprglass_disabled` | No glass on matching windows |
+| `subtle` / `minimal` | `+hyprglass_preset_subtle` | Reduced glass |
+| `full` / `default` | `+hyprglass_enabled` | Full profile glass |
+| `ui` | `+hyprglass_preset_ui` | Flat UI preset |
+
+Example rules from a profile:
+
+```conf
+$window_rules.games.match = class:^steam_app_.+$,class:^gamescope$
+$window_rules.games.action = disable
+$window_rules.games.reason = Games - glass disabled for performance
+
+$window_rules.video_players.match = class:^(mpv|vlc|celluloid)$
+$window_rules.video_players.action = minimal
+$window_rules.video_players.reason = Video players - minimal glass
+$window_rules.video_players.overrides.blur_strength = 1.0
+$window_rules.video_players.overrides.glass_opacity = 0.3
+$window_rules.video_players.overrides.active_opacity = 0.95
 ```
-
-### Priority Rules
-
-Higher priority wins when multiple rules match. If no rule matches, the manual/default profile is used.
 
 ### Common Auto-Switch Patterns
 
-| Condition | Recommended Profile | Reason |
-|-----------|-------------------|--------|
-| Fullscreen windows | `gaming` | Reduce compositing overhead |
-| Steam games (`steam_app_*`) | `gaming` | Maximize performance |
-| Video players (mpv, vlc) | `movies` | Avoid visual distraction |
-| Browsers | `default` | Full glass aesthetic |
-| Terminal emulators | `coding` | Readability first |
+| Condition | Recommended Profile / Rule | Reason |
+|-----------|---------------------------|--------|
+| Fullscreen windows | `$window_rules.fullscreen.action = disable` | Reduce compositing overhead |
+| Steam games (`steam_app_*`) | `$window_rules.games.action = disable` | Maximize performance |
+| Video players (mpv, vlc) | `$window_rules.video_players.action = minimal` | Avoid visual distraction |
+| Browsers | `$window_rules.browsers.action = full` | Full glass aesthetic |
+| Terminal emulators | `$window_rules.terminals.action = subtle` | Readability first |
 
 ## Creating Custom Profiles
 
 ### Profile File Structure
 
-Create a new file in `~/.config/hyprglass/profiles/` with a `.json` or `.yaml` extension. The filename becomes the profile name.
+Create a new file in `~/.config/hypr/hyprglass-profiles/` with a `.conf` extension. The filename (without `.conf`) becomes the profile name.
 
 ```
-~/.config/hyprglass/profiles/
-├── default.json
-├── gaming.json
-├── coding.json
-├── movies.json
-├── minimal.json          ← your custom profile
-└── work-focus.yaml       ← another custom profile
+~/.config/hypr/hyprglass-profiles/
+├── default.conf
+├── gaming.conf
+├── coding.conf
+├── movies.conf
+├── minimal.conf          ← your custom profile
+└── work-focus.conf       ← another custom profile
 ```
+
+### Required Identity Fields
+
+```conf
+$name = minimal
+$version = 1.0.0
+$inherits = default
+```
+
+`$inherits` is reserved for future inheritance support; currently each profile should define the values it needs.
 
 ### Available Settings
 
-```json
-{
-  "name": "string",
-  "description": "string",
-  "blur": {
-    "enabled": true,
-    "size": 6,
-    "passes": 2,
-    "noise": 0.02,
-    "contrast": 0.9,
-    "brightness": 0.8,
-    "vibrancy": 0.2,
-    "vibrancy_darkness": 0.15
-  },
-  "opacity": {
-    "active_opacity": 0.85,
-    "inactive_opacity": 0.75,
-    "fullscreen_opacity": 1.0
-  },
-  "decoration": {
-    "rounding": 12,
-    "shadow": {
-      "enabled": true,
-      "range": 15,
-      "render_power": 3,
-      "color": "rgba(0,0,0,0.4)"
-    }
-  },
-  "animation": {
-    "speed": 5,
-    "style": "slide"
-  },
-  "saturation": 1.0,
-  "tint_color": "auto",
-  "tint_strength": 0.15
-}
+```conf
+# Glass effect settings
+$glass.blur_strength = 3.4
+$glass.blur_iterations = 2
+$glass.refraction_strength = 0.96
+$glass.chromatic_aberration = 0.7
+$glass.fresnel_strength = 0.96
+$glass.specular_strength = 0.6
+$glass.glass_opacity = 1.0
+$glass.edge_thickness = 0.14
+$glass.lens_distortion = 0.42
+
+# Theme settings (dark theme shown; light is analogous)
+$theme.dark.brightness = 1.1
+$theme.dark.contrast = 1.2
+$theme.dark.saturation = 1.15
+$theme.dark.vibrancy = 0.7
+$theme.dark.vibrancy_darkness = 0.52
+$theme.dark.adaptive_dim = 0.65
+$theme.dark.adaptive_boost = 0.34
+
+# Decoration settings
+$decoration.active_opacity = 0.75
+$decoration.inactive_opacity = 0.65
 ```
 
-### Inheritance from Default
+### Window Rules
 
-Profiles inherit missing values from `default.json`. You only need to specify values you want to override:
+Rules are grouped under `$window_rules.<name>` and support these fields:
 
-```json
-{
-  "name": "minimal",
-  "description": "Almost invisible glass",
-  "blur": {
-    "size": 2,
-    "passes": 1
-  },
-  "opacity": {
-    "active_opacity": 0.95
-  }
-}
+| Field | Description |
+|-------|-------------|
+| `match` | Comma-separated Hyprland windowrulev2 conditions |
+| `action` | `disable`, `subtle`, `minimal`, `full`, `default`, or `ui` |
+| `reason` | Human-readable description |
+| `overrides.<key>` | Optional per-rule overrides applied after the profile |
+
+```conf
+$window_rules.terminals.match = class:^(kitty|Alacritty|wezterm|foot|ghostty)$
+$window_rules.terminals.action = subtle
+$window_rules.terminals.reason = Terminals - subtle glass for readability
+$window_rules.terminals.overrides.blur_strength = 2.0
+$window_rules.terminals.overrides.glass_opacity = 0.7
+$window_rules.terminals.overrides.active_opacity = 0.85
+$window_rules.terminals.overrides.inactive_opacity = 0.75
 ```
-
-This inherits `blur.noise`, `blur.contrast`, `blur.brightness`, `blur.vibrancy`, and all `decoration`/`animation` settings from the default profile.
 
 ## Profile + Wallust Interaction
 
 Profiles and wallust serve complementary roles:
 
-- **Profiles** control the structural glass settings (blur, opacity, saturation, animation).
-- **Wallust** controls the color scheme (window borders, tint colors, active/inactive highlights).
+- **Profiles** control the structural glass settings (blur, opacity, saturation, theme overrides).
+- **Wallust** controls the color scheme (tint color, brightness calibration).
 
-### How tint_color Auto-Updates
+### How Tint Auto-Updates
 
-When `tint_color` is set to `"auto"` in a profile, Hyprglass queries wallust for the current background or accent color and uses it as the tint. This means:
+Wallust writes `~/.cache/.hyprglass_wallust.json` with extracted colors. The startup fix script (`FixHyprglassValues.sh`) applies `tint_color` and `dark:brightness` from that cache. To disable auto-tint, remove or comment out the wallust cache handling in `FixHyprglassValues.sh`.
 
-1. When wallust updates your wallpaper, the tint color follows automatically.
-2. You can change wallpapers without editing profile files.
-3. The structural settings (blur, opacity) remain unchanged.
+### Pinning a Tint Color
 
-```json
-{
-  "name": "default",
-  "tint_color": "auto",
-  "tint_strength": 0.15
-}
-```
+Set `$glass.tint_color` in the profile (or in `Hyprglass.conf`) to a fixed `0xAARRGGBB` value. If a static tint is present, the wallust cache will not override it unless the startup script is configured to do so.
 
-To pin a specific tint color instead of using wallust:
-
-```json
-{
-  "name": "movies",
-  "tint_color": "#1a1a2e",
-  "tint_strength": 0.25
-}
+```conf
+$glass.tint_color = 0x881a1a2e
 ```
 
 ### Interaction Table
 
 | Profile Setting | Wallust Setting | Behavior |
 |----------------|-----------------|----------|
-| `tint_color: "auto"` | `colors.wallust` | Wallust provides color, profile provides strength |
-| `tint_color: "#hex"` | Any | Profile color is used, wallust ignored |
-| `tint_strength` | `colors.alpha` | Profile strength takes precedence |
+| No `$glass.tint_color` in profile | Wallust cache present | Startup script applies wallust tint |
+| `$glass.tint_color = 0xAARRGGBB` | Wallust cache present | Profile tint is applied by `HyprglassProfile.sh`; wallust cache handled separately at startup |
+| `$theme.dark.brightness` set | Wallust brightness present | Profile brightness takes precedence when profile is applied |

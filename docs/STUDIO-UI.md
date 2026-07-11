@@ -1,6 +1,6 @@
 # HyprGlass Studio — Web Interface
 
-> Live-tuning dashboard for the HyprGlass glass-effect engine.
+> Live editor for the HyprGlass configuration file.
 
 ---
 
@@ -8,36 +8,32 @@
 
 - [Overview](#overview)
 - [Launching the Studio](#launching-the-studio)
-- [Interface Walkthrough](#interface-walkthrough)
-  - [Header Bar](#header-bar)
-  - [Global Settings](#global-settings)
-  - [Glass Effect Tuning](#glass-effect-tuning)
-  - [Dark / Light Theme Tuning](#dark--light-theme-tuning)
-  - [Layer Surfaces](#layer-surfaces)
-  - [Decoration Overrides](#decoration-overrides)
-  - [Window Rules Editor](#window-rules-editor)
+- [Interface Layout](#interface-layout)
+- [Global Settings](#global-settings)
+- [Theme Settings](#theme-settings)
+- [Layer Surfaces](#layer-surfaces)
+- [Decoration](#decoration)
+- [Window Rules](#window-rules)
+- [Export Panel](#export-panel)
 - [Buttons & Actions](#buttons--actions)
-- [Profile Management](#profile-management)
-- [Theme Toggle](#theme-toggle)
-- [API Reference](#api-reference)
 - [How Configuration is Written](#how-configuration-is-written)
 - [Preserving `default_preset`](#preserving-default_preset)
+- [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-HyprGlass Studio is a local web UI that lets you adjust every HyprGlass parameter in real time, preview changes in a live kitty terminal window, and persist your settings to `Hyprglass.conf` with a single click. It runs as a lightweight Python HTTP server — no external dependencies beyond the standard library.
+HyprGlass Studio is a local web UI for editing `Hyprglass.conf`. It lets you adjust every HyprGlass parameter, preview changes in a temporary kitty window, and apply the result to your live Hyprland session. The editor runs as a lightweight Python HTTP server with no external Python dependencies.
 
-<!-- Screenshot placeholder -->
-![Studio UI — Full Page](../screenshots/studio-full.png)
+The current UI is a single-page editor with a sidebar, a central editing area, and a live export preview panel.
 
 ---
 
 ## Launching the Studio
 
-### Direct Python invocation
+### From the repository
 
 ```bash
 cd ~/hyprglass-studio
@@ -50,132 +46,148 @@ Any free port works:
 python3 -m src.server --port 9000
 ```
 
+### When installed system-wide
+
+```bash
+hyprglass-studio --port 8765
+```
+
 Once running, open the displayed URL in any browser:
 
 ```
 http://localhost:8765
 ```
 
-<!-- Screenshot placeholder -->
-![Launch terminal output](../screenshots/launch-terminal.png)
-
 ---
 
-## Interface Walkthrough
+## Interface Layout
 
-The UI is organised into collapsible sections on a single scrollable page.
+The page is split into three columns:
 
-### Header Bar
+| Column | Contents |
+|--------|----------|
+| **Sidebar** | Navigation, state badges, and **Reset to defaults**. |
+| **Content** | The active section's controls. |
+| **Preview** | Live generated config, output-format toggle, and default theme/preset selectors. |
 
-| Element | Description |
-|---|---|
-| **HyprGlass Studio** title | Branding — not interactive |
-| **Profile selector** | Dropdown to load / switch saved profiles |
-| **Theme toggle** | Switch between the Studio's own dark and light chrome |
-| **Apply** | Write current settings to `Hyprglass.conf` and reload Hyprland |
-| **Preview** | Send a non-destructive live preview to the kitty window |
-| **Reset** | Revert all controls to the values loaded from disk |
+### Navigation Sections
 
-<!-- Screenshot placeholder -->
-![Header bar](../screenshots/header-bar.png)
+| Section | Description |
+|---------|-------------|
+| **Global settings** | Plugin enable switch, default theme/preset, and global glass parameters. |
+| **Theme settings** | Per-theme overrides for dark and light modes. |
+| **Layer surfaces** | Layer namespace whitelist/blacklist and per-namespace presets. |
+| **Decoration** | Window opacity for active, inactive, and fullscreen states. |
+| **Window rules** | Per-window match/action rules. |
+| **Export** | Summary cards and the generated config preview. |
 
 ---
 
 ### Global Settings
 
-Top-level toggles that control HyprGlass behaviour at the compositor level.
+Top-level toggles and global glass parameters.
 
 | Control | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | checkbox | `true` | Master switch — disables all glass effects when unchecked |
-| `preset` | dropdown | `default` | Built-in preset loaded at startup |
-| `theme` | dropdown | `auto` | Force dark, light, or follow system (`auto`) |
+| `enabled` | checkbox | `true` | Master switch — disables all glass effects when unchecked. |
+| `default_theme` | select | `dark` | Theme applied at startup (`dark` or `light`). |
+| `default_preset` | select | `default` | Built-in preset loaded at startup (`glass`, `subtle`, `ui`, or `default`). |
+| `blur_strength` | slider | `3.4` | Blur radius scale. |
+| `blur_iterations` | slider | `2` | Gaussian blur passes. |
+| `refraction_strength` | slider | `0.96` | Edge refraction intensity. |
+| `chromatic_aberration` | slider | `0.7` | Spectral dispersion at edges. |
+| `fresnel_strength` | slider | `0.96` | Edge glow intensity. |
+| `specular_strength` | slider | `0.6` | Specular highlight brightness. |
+| `glass_opacity` | slider | `1.0` | Overall glass opacity. |
+| `edge_thickness` | slider | `0.14` | Bezel width as a fraction of the smallest dimension. |
+| `lens_distortion` | slider | `0.56` | Center dome magnification. |
+| `tint_color` | color | `0x8899aa22` | Glass tint in `0xAARRGGBB` format. |
 
 ---
 
-### Glass Effect Tuning
+### Theme Settings
 
-The core visual parameters. All sliders update the live preview in real time.
+Separate overrides for dark and light themes. The active set depends on the `default_theme` global setting.
 
-| Control | Range | Default | Description |
-|---|---|---|---|
-| `blur_size` | 1 – 50 | 20 | Gaussian blur kernel radius |
-| `blur_passes` | 1 – 10 | 3 | Number of blur passes (more = heavier) |
-| `refraction_strength` | 0.0 – 1.0 | 0.45 | How much light bends through the glass |
-| `chromatic_aberration` | 0.0 – 1.0 | 0.12 | Colour fringing at glass edges |
-| `fresnel_intensity` | 0.0 – 1.0 | 0.65 | Edge-brightness falloff (Fresnel effect) |
-| `tint_opacity` | 0 – 100 | 18 | Opacity of the colour tint overlay (%) |
-| `noise_grain` | 0.0 – 1.0 | 0.03 | Subtle grain texture on the glass surface |
-
-<!-- Screenshot placeholder -->
-![Glass effect controls](../screenshots/glass-effect.png)
-
----
-
-### Dark / Light Theme Tuning
-
-Separate colour palettes for each system theme. The active set depends on the `theme` global setting.
-
-#### Dark theme defaults
-
-| Control | Default |
-|---|---|
-| `bg_tint` | `rgba(30, 30, 40, 0.18)` |
-| `border_color` | `rgba(255, 255, 255, 0.08)` |
-| `shadow_color` | `rgba(0, 0, 0, 0.35)` |
-
-#### Light theme defaults
-
-| Control | Default |
-|---|---|
-| `bg_tint` | `rgba(255, 255, 255, 0.22)` |
-| `border_color` | `rgba(0, 0, 0, 0.06)` |
-| `shadow_color` | `rgba(0, 0, 0, 0.12)` |
-
-Each colour field accepts CSS-style `rgba(...)` strings.
+| Control | Range | Description |
+|---|---|---|
+| `brightness` | 0.2 – 1.6 | Brightness multiplier. |
+| `contrast` | 0.2 – 1.6 | Contrast around the midpoint. |
+| `saturation` | 0 – 1.5 | Desaturation level. |
+| `vibrancy` | 0 – 1 | Selective saturation boost. |
+| `vibrancy_darkness` | 0 – 1 | How much dark areas influence vibrancy. |
+| `adaptive_dim` | 0 – 1 | Dims bright areas behind the glass. |
+| `adaptive_boost` | 0 – 1 | Boosts dark areas behind the glass. |
 
 ---
 
 ### Layer Surfaces
 
-Configure which layer-shell surfaces (bars, notifications, overlays) receive glass effects.
+Configure which Hyprland layer-shell surfaces (bars, docks, widgets) receive glass effects.
 
 | Control | Type | Description |
 |---|---|---|
-| `waybar` | checkbox | Apply glass to Waybar |
-| `notifications` | checkbox | Apply glass to notification popups |
-| `lock_screen` | checkbox | Apply glass to the lock screen overlay |
-| `layer_blur` | slider (0–50) | Dedicated blur radius for layer surfaces |
-| `layer_opacity` | slider (0–100) | Opacity percentage for layer surfaces |
+| `enabled` | checkbox | Enable glass on layer surfaces. |
+| `namespaces` | textarea | Comma-separated whitelist (e.g. `waybar, swaync, notifications`). |
+| `exclude_namespaces` | textarea | Comma-separated blacklist. |
+| `preset` | text | Default preset used by layer surfaces. |
+| `namespace_presets` | textarea | Comma-separated `namespace:preset` pairs. |
+| `namespace_mask_thresholds` | textarea | Comma-separated `namespace=value` opacity thresholds. |
+
+Click **Use sample layers** to populate typical values.
 
 ---
 
-### Decoration Overrides
+### Decoration
 
-Override Hyprland's `decoration` section values when HyprGlass is active.
+Override Hyprland's `decoration` opacity values.
 
-| Control | Range | Description |
-|---|---|---|
-| `active_opacity` | 0.0 – 1.0 | Window opacity when focused |
-| `inactive_opacity` | 0.0 – 1.0 | Window opacity when unfocused |
-| `fullscreen_opacity` | 0.0 – 1.0 | Window opacity when fullscreen |
-| `rounding` | 0 – 50 | Corner radius override (pixels) |
+| Control | Range | Default | Description |
+|---|---|---|---|
+| `active_opacity` | 0.0 – 1.0 | `0.86` | Opacity of focused windows. Must be `< 1.0` for glass to be visible. |
+| `inactive_opacity` | 0.0 – 1.0 | `0.72` | Opacity of unfocused windows. |
+| `fullscreen_opacity` | 0.0 – 1.0 | `1.0` | Opacity of fullscreen windows. Usually `1.0` for no glass. |
 
 ---
 
-### Window Rules Editor
+### Window Rules
 
-A rule-based system for per-app glass overrides. The editor exposes a textarea where each line is a Hyprland-style window rule.
+A rule-based system for per-window glass behavior. Each rule has a match condition, an action, and an enable toggle.
 
-**Format:**
+**Match syntax** uses Hyprland-style conditions:
 
 ```
-windowrulev2 = opacity 0.9 0.7, class:^(kitty)$
-windowrulev2 = opacity 0.85 0.65, class:^(firefox)$
-windowrulev2 = opaque, class:^(mpv)$
+class ^(waterfox)$
+class ^(kitty)$
+tag:browser
 ```
 
-Rules are validated client-side before being sent to the server. Invalid lines are highlighted in red.
+**Action syntax** can be a tag or an opacity override:
+
+```
+tag +hyprglass_enabled
+opacity 0.86 0.72
+```
+
+The generated config writes each enabled rule as:
+
+```conf
+windowrule = match:<condition>, <action>
+```
+
+Use **Add rule** and **Remove** to manage the list.
+
+---
+
+## Export Panel
+
+The right-hand panel shows the generated config in real time and lets you:
+
+- Toggle output format between **CONF** (Hyprland config) and **Lua**.
+- Toggle preview theme between **dark** and **light**.
+- Change the `default_theme` and `default_preset` selectors.
+- **Copy config** to the clipboard.
+- **Download** the generated file (`hyprglass.conf` or `hyprglass.lua`).
 
 ---
 
@@ -183,169 +195,11 @@ Rules are validated client-side before being sent to the server. Invalid lines a
 
 | Button | Behaviour |
 |---|---|
-| **Preview** | Sends a `POST /api/preview` with the current form state. The kitty preview window updates immediately. No files are modified. |
-| **Apply** | Sends a `POST /api/apply`. The server writes the full configuration to `Hyprglass.conf` and triggers `hyprctl reload`. |
-| **Reset** | Re-fetches `GET /api/config` and repopulates every control with the values currently on disk. Discards unsaved changes. |
-
----
-
-## Profile Management
-
-Profiles are saved snapshots of every Studio parameter.
-
-- **Save** — Type a name in the profile input and click *Save*. The server writes a JSON file to `profiles/<name>.json`.
-- **Load** — Select a profile from the dropdown. All controls update and a preview is triggered automatically.
-- **Delete** — Click the × icon next to a profile name. The server removes `profiles/<name>.json`.
-
-<!-- Screenshot placeholder -->
-![Profile dropdown](../screenshots/profiles-dropdown.png)
-
----
-
-## Theme Toggle
-
-The Studio UI itself supports a dark and light chrome theme, independent of the glass-effect theme being configured. Click the sun/moon icon in the header bar to switch. The preference is stored in `localStorage` and persists across sessions.
-
----
-
-## API Reference
-
-All endpoints accept and return `application/json`.
-
-### `GET /api/health`
-
-Returns server status and version.
-
-```bash
-curl http://localhost:8765/api/health
-```
-
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "config_path": "~/.config/hypr/Hyprglass.conf"
-}
-```
-
----
-
-### `GET /api/config`
-
-Returns the full configuration object currently loaded in memory.
-
-```bash
-curl http://localhost:8765/api/config
-```
-
-**Response (abbreviated):**
-
-```json
-{
-  "enabled": true,
-  "preset": "default",
-  "theme": "auto",
-  "glass": {
-    "blur_size": 20,
-    "blur_passes": 3,
-    "refraction_strength": 0.45,
-    "chromatic_aberration": 0.12,
-    "fresnel_intensity": 0.65,
-    "tint_opacity": 18,
-    "noise_grain": 0.03
-  },
-  "dark_theme": {
-    "bg_tint": "rgba(30, 30, 40, 0.18)",
-    "border_color": "rgba(255, 255, 255, 0.08)",
-    "shadow_color": "rgba(0, 0, 0, 0.35)"
-  },
-  "light_theme": {
-    "bg_tint": "rgba(255, 255, 255, 0.22)",
-    "border_color": "rgba(0, 0, 0, 0.06)",
-    "shadow_color": "rgba(0, 0, 0, 0.12)"
-  },
-  "layer_surfaces": {
-    "waybar": true,
-    "notifications": true,
-    "lock_screen": false,
-    "layer_blur": 15,
-    "layer_opacity": 90
-  },
-  "decoration": {
-    "active_opacity": 0.92,
-    "inactive_opacity": 0.78,
-    "fullscreen_opacity": 1.0,
-    "rounding": 12
-  },
-  "window_rules": [
-    "windowrulev2 = opacity 0.9 0.7, class:^(kitty)$"
-  ]
-}
-```
-
----
-
-### `POST /api/preview`
-
-Sends the provided parameters to the live preview window without writing any files.
-
-```bash
-curl -X POST http://localhost:8765/api/preview \
-  -H "Content-Type: application/json" \
-  -d '{
-    "glass": {
-      "blur_size": 25,
-      "refraction_strength": 0.5
-    }
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "status": "preview_updated",
-  "applied": ["glass.blur_size", "glass.refraction_strength"]
-}
-```
-
-Only keys present in the request body are overridden — omitted keys retain their current values.
-
----
-
-### `POST /api/apply`
-
-Writes the full configuration to `Hyprglass.conf` and reloads Hyprland.
-
-```bash
-curl -X POST http://localhost:8765/api/apply \
-  -H "Content-Type: application/json" \
-  -d '{
-    "enabled": true,
-    "preset": "default",
-    "glass": {
-      "blur_size": 20,
-      "blur_passes": 3,
-      "refraction_strength": 0.45,
-      "chromatic_aberration": 0.12,
-      "fresnel_intensity": 0.65,
-      "tint_opacity": 18,
-      "noise_grain": 0.03
-    }
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "status": "applied",
-  "config_path": "~/.config/hypr/Hyprglass.conf",
-  "reloaded": true
-}
-```
+| **Preview** | Sends a `POST /api/preview` with the current generated config. A kitty window opens with the new config applied. When the window closes, the previous config is restored. |
+| **Apply** | Sends a `POST /api/apply`. The server validates the config, writes it to `~/.config/hypr/UserConfigs/Hyprglass.conf`, and triggers `hyprctl reload`. |
+| **Copy config** | Copies the current export text to the clipboard. |
+| **Download** | Downloads the current export as a file. |
+| **Reset to defaults** | Clears `localStorage` and reloads the built-in default state. |
 
 ---
 
@@ -353,41 +207,60 @@ curl -X POST http://localhost:8765/api/apply \
 
 When **Apply** is clicked:
 
-1. The server serialises the in-memory config dict into the HyprGlass TOML/conf format.
-2. An atomic write is performed — the new content is written to a temporary file, `fsync`'d, then renamed over the target path. This prevents partial writes on crash.
-3. `hyprctl reload` is executed to make Hyprland pick up the new settings.
-4. The response is returned to the client.
+1. The editor serialises the in-memory state into Hyprland config text.
+2. The browser sends the full text to `POST /api/apply`.
+3. The server validates the config (required blocks, numeric ranges, etc.).
+4. A timestamped backup is created in `~/.config/hypr/backups/hyprglass-studio/`.
+5. The server writes the config to `~/.config/hypr/UserConfigs/Hyprglass.conf`.
+6. `hyprctl reload` is executed so Hyprland picks up the new settings.
 
-The configuration file path is determined at startup and printed in the health endpoint. By default:
+The default config path is:
 
 ```
-~/.config/hypr/Hyprglass.conf
+~/.config/hypr/UserConfigs/Hyprglass.conf
 ```
 
 ---
 
 ## Preserving `default_preset`
 
-`server.py` contains an explicit guard to ensure the `default_preset` key is never overwritten by user edits:
+`src/server.py` preserves the existing `default_preset` value when applying a new config:
 
 ```python
-# In server.py — apply handler
-def apply_config(new_config: dict) -> dict:
-    current = load_config()
-
-    # Preserve the original default_preset — users must not change this via the UI
-    if "default_preset" in current:
-        new_config["default_preset"] = current["default_preset"]
-
-    # ... write new_config to disk ...
+def _preserve_default_preset(new_content: str) -> str:
+    ...
+    match = re.search(r"^\s*default_preset\s*=\s*(.+)$", existing, re.MULTILINE)
+    if match:
+        ...
+        new_content = re.sub(
+            r"default_preset\s*=\s*\S+",
+            f"default_preset = {preset_value}",
+            new_content,
+            count=1,
+        )
+    return new_content
 ```
 
 This means:
 
-- `default_preset` is read once at startup from the existing `Hyprglass.conf`.
-- The Studio UI does not expose a control for it.
+- `default_preset` is read from the existing `Hyprglass.conf` before each write.
+- The Studio UI can select a preset for the exported config, but the on-disk `default_preset` is preserved across applies.
 - If `default_preset` is absent from the on-disk config (fresh install), it is set to `"default"` automatically.
-- Every Apply call copies the original value into the new config before writing, guaranteeing it survives any number of UI edits.
+
+---
+
+## API Reference
+
+The Studio server exposes a small REST API. All endpoints accept and return JSON (except `GET /api/config`, which returns the raw config text inside a JSON wrapper).
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | `GET` | Server status and version. |
+| `/api/config` | `GET` | Raw current `Hyprglass.conf` text. |
+| `/api/preview` | `POST` | Preview a config in a temporary kitty window. |
+| `/api/apply` | `POST` | Validate, write, and reload a config. |
+
+See [API.md](API.md) for full request/response details and curl examples.
 
 ---
 
@@ -395,22 +268,8 @@ This means:
 
 | Problem | Fix |
 |---|---|
-| Server won't start — port in use | `python3 server.py --port <other>` or kill the process on the occupied port |
-| Preview doesn't update | Ensure kitty is running and the preview window PID is valid — restart the server to re-detect |
-| Apply has no visual effect | Run `hyprctl reload` manually; check `Hyprglass.conf` for syntax errors |
-| Profile won't save | Verify the `profiles/` directory exists and is writable |
-| Config file path is wrong | The server reads `HYPRLAND_CONFIG_DIR` or falls back to `~/.config/hypr/` |
-
----
-
-## Screenshots
-
-<!-- Replace placeholder paths with actual images -->
-
-| Glass Effect | Studio UI | Profile Switch |
-|:---:|:---:|:---:|
-| ![Glass](../screenshots/glass.png) | ![Studio](../screenshots/studio.png) | ![Profiles](../screenshots/profiles.png) |
-
-| Window Rules | Theme Toggle | API Health |
-|:---:|:---:|:---:|
-| ![Rules](../screenshots/window-rules.png) | ![Theme](../screenshots/theme-toggle.png) | ![API](../screenshots/api-health.png) |
+| Server won't start — port in use | `python3 -m src.server --port <other>` or kill the process on the occupied port. |
+| Preview doesn't open | Ensure `kitty` is installed and in your `PATH`. Close any existing preview window first. |
+| Apply has no visual effect | Run `hyprctl reload` manually; check `~/.config/hypr/UserConfigs/Hyprglass.conf` for syntax errors. |
+| Config path is wrong | The server hard-codes `~/.config/hypr/UserConfigs/Hyprglass.conf`. Edit `src/server.py` if your layout differs. |
+| Changes lost after reload | Make sure you clicked **Apply**; **Preview** is temporary and restores the old config when the window closes. |

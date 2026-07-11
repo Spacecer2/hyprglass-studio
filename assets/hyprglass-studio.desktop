@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=HyprGlass Studio
+Comment=Apple-style Liquid Glass effects for Hyprland
+Exec=hyprglass-studio
+Type=Application
+Terminal=false
+Categories=System;Settings;
+Keywords=hyprland;glass;transparency;blur;
