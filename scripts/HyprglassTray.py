@@ -22,12 +22,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 from pathlib import Path
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 # ---------------------------------------------------------------------------
 # Paths and constants
@@ -52,13 +56,9 @@ DEFAULT_ICON_NAME = "preferences-system-windows"
 # ---------------------------------------------------------------------------
 def run(cmd: list[str], capture: bool = True, check: bool = False) -> subprocess.CompletedProcess:
     """Run a command, suppressing stderr unless in debug mode."""
-    return subprocess.run(
-        cmd,
-        capture_output=capture,
-        text=True,
-        check=check,
-        stderr=subprocess.DEVNULL if capture else None,
-    )
+    if capture:
+        return subprocess.run(cmd, capture_output=True, text=True, check=check)
+    return subprocess.run(cmd, text=True, check=check)
 
 
 def current_profile() -> str:
@@ -87,7 +87,8 @@ def list_profiles() -> list[str]:
     if PROFILE_SCRIPT.exists():
         result = run(["bash", str(PROFILE_SCRIPT), "list"])
         for line in result.stdout.splitlines():
-            stripped = line.strip()
+            # Strip ANSI color codes before parsing.
+            stripped = _ANSI_RE.sub("", line.strip())
             if not stripped or stripped.startswith("Available") or stripped.startswith("No profiles"):
                 continue
             # Lines look like: "  profile - description" or "  -> profile - description"
@@ -135,7 +136,9 @@ def apply_profile(name: str) -> None:
 def glass_enabled() -> bool:
     """Return whether HyprGlass is currently enabled."""
     result = run(["hyprctl", "getoption", "plugin:hyprglass:enabled"])
-    return "int: 1" in result.stdout or "1" in result.stdout.splitlines()[0] if result.stdout else False
+    if not result.stdout:
+        return False
+    return "int: 1" in result.stdout or "set: true" in result.stdout
 
 
 def toggle_glass() -> None:
