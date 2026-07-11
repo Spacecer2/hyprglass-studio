@@ -656,7 +656,7 @@ generate_fix_script() {
     cat > "$tmp_fix" <<'EOF'
 #!/usr/bin/env bash
 # FixHyprglassValues.sh
-# Applies the default HyprGlass profile at session startup.
+# Applies the correct HyprGlass values at session startup.
 # This script is executed once by Hyprland via exec-once.
 
 set -euo pipefail
@@ -671,6 +671,41 @@ sleep 0.5
 # Apply default profile if the switcher exists
 if [[ -x "$PROFILE_SCRIPT" ]] && [[ -f "${PROFILES_DIR}/default.conf" ]]; then
     "$PROFILE_SCRIPT" apply default >/dev/null 2>&1 || true
+fi
+
+# Apply correct HyprGlass values (not plugin defaults) in a single batched call.
+if command -v hyprctl &>/dev/null; then
+    hyprctl --batch "\
+keyword plugin:hyprglass:blur_strength 3.4;\
+keyword plugin:hyprglass:blur_iterations 2;\
+keyword plugin:hyprglass:refraction_strength 0.96;\
+keyword plugin:hyprglass:chromatic_aberration 0.7;\
+keyword plugin:hyprglass:fresnel_strength 0.96;\
+keyword plugin:hyprglass:specular_strength 0.6;\
+keyword plugin:hyprglass:edge_thickness 0.14;\
+keyword plugin:hyprglass:lens_distortion 0.42;\
+keyword plugin:hyprglass:tint_color 0x99c1f122;\
+keyword plugin:hyprglass:dark:brightness 1.1;\
+keyword plugin:hyprglass:dark:contrast 1.2;\
+keyword plugin:hyprglass:dark:saturation 1.15;\
+keyword plugin:hyprglass:dark:vibrancy 0.7;\
+keyword plugin:hyprglass:dark:vibrancy_darkness 0.52;\
+keyword plugin:hyprglass:dark:adaptive_dim 0.65;\
+keyword plugin:hyprglass:dark:adaptive_boost 0.34;\
+keyword plugin:hyprglass:light:brightness 1.05;\
+keyword plugin:hyprglass:light:contrast 0.92;\
+keyword plugin:hyprglass:light:saturation 0.85;\
+keyword plugin:hyprglass:light:vibrancy 0.12;\
+keyword plugin:hyprglass:light:vibrancy_darkness 0;\
+keyword plugin:hyprglass:light:adaptive_dim 0;\
+keyword plugin:hyprglass:light:adaptive_boost 0.4;\
+keyword plugin:hyprglass:layers:enabled 1;\
+keyword plugin:hyprglass:layers:namespaces waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi;\
+keyword plugin:hyprglass:layers:exclude_namespaces ;\
+keyword plugin:hyprglass:layers:preset subtle;\
+keyword plugin:hyprglass:layers:namespace_presets waybar:subtle, quickshell:bezel:ui;\
+keyword plugin:hyprglass:layers:namespace_mask_thresholds waybar=0.05, quickshell:overview=0.3, quickshell:bezel=0.3, rofi=0.05;\
+" >/dev/null 2>&1 || true
 fi
 
 # If wallust colors are present, apply them in a single batched hyprctl call.

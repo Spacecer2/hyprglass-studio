@@ -14,8 +14,8 @@ if [ ! -f "$WALLUST_CONF" ]; then
 fi
 
 # Extract $color12 (accent) and $background
-color12=$(grep -E '^\$color12' "$WALLUST_CONF" | cut -d'=' -f2 | tr -d ' ')
-background=$(grep -E '^\$background' "$WALLUST_CONF" | cut -d'=' -f2 | tr -d ' ')
+color12=$(grep -E '^\$color12' "$WALLUST_CONF" | cut -d'=' -f2 | tr -d ' ' || true)
+background=$(grep -E '^\$background' "$WALLUST_CONF" | cut -d'=' -f2 | tr -d ' ' || true)
 
 if [ -z "$color12" ] || [ -z "$background" ]; then
     echo "Error: Could not extract colors from wallust config"
@@ -23,14 +23,14 @@ if [ -z "$color12" ] || [ -z "$background" ]; then
 fi
 
 # Remove alpha channel from color12 for tint_color (take first 6 chars after 0x)
-color12_hex=$(echo "$color12" | sed 's/^0x//' | cut -c1-6)
+color12_hex=$(printf '%s' "$color12" | sed 's/^0x//' | cut -c1-6)
 
 # Generate tint_color: 0x99 + color12_hex
 tint_color="0x99${color12_hex}"
 
 # Calculate brightness from background color (0-1 scale)
 # Extract RGB components (assuming 0xAARRGGBB format)
-bg_hex=$(echo "$background" | sed 's/^0x//')
+bg_hex=$(printf '%s' "$background" | sed 's/^0x//')
 bg_r=$((16#${bg_hex:2:2}))
 bg_g=$((16#${bg_hex:4:2}))
 bg_b=$((16#${bg_hex:6:2}))
