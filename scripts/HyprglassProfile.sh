@@ -39,9 +39,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-die() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
-info() { echo -e "${BLUE}$1${NC}"; }
-warn() { echo -e "${YELLOW}$1${NC}"; }
+die() { printf '%bError: %s%b\n' "$RED" "$1" "$NC" >&2; exit 1; }
+info() { printf '%b%s%b\n' "$BLUE" "$1" "$NC"; }
+warn() { printf '%b%s%b\n' "$YELLOW" "$1" "$NC"; }
 
 check_deps() {
     command -v hyprctl &>/dev/null || die "hyprctl not found - is Hyprland running?"
@@ -252,9 +252,9 @@ list_profiles() {
         p=$(profile_name_from_file "$f")
         desc=$(profile_desc_from_file "$f")
         if [[ "$p" == "$current" ]]; then
-            echo -e "  ${GREEN}→ $p${NC} - $desc"
+            printf '  %b→ %s%b - %s\n' "$GREEN" "$p" "$NC" "$desc"
         else
-            echo -e "  $p - $desc"
+            printf '  %s - %s\n' "$p" "$desc"
         fi
     done
 }
@@ -316,11 +316,13 @@ apply_profile() {
     # Apply window rules: $window_rules.<name>.* -> windowrulev2
     # Build rules by collecting lines that share the same rule prefix.
     local rule_names=()
+    declare -A rule_names_seen
     while IFS= read -r line; do
         local rule_name
-        rule_name=$(echo "$line" | sed -E 's/^\$window_rules\.([^.]+)\.[^=]+=.*/\1/')
+        rule_name=$(printf '%s\n' "$line" | sed -E 's/^\$window_rules\.([^.]+)\.[^=]+=.*/\1/')
         [[ -n "$rule_name" ]] || continue
-        if [[ ! " ${rule_names[*]} " =~ " ${rule_name} " ]]; then
+        if [[ -z "${rule_names_seen[$rule_name]:-}" ]]; then
+            rule_names_seen[$rule_name]=1
             rule_names+=("$rule_name")
         fi
     done < <(grep -E '^\$window_rules\.' "$profile_file" 2>/dev/null)
@@ -556,7 +558,15 @@ marketplace_list() {
     if command -v jq &>/dev/null; then
         jq -r '.profiles[] | "  \(.name) - \(.description)"' "$registry"
     elif command -v python3 &>/dev/null; then
-        python3 -c "import json; d=json.load(open('$registry')); [print(f'  {p[\"name\"]} - {p[\"description\"]}') for p in d['profiles']]"
+        python3 - "$registry" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    d = json.load(f)
+for p in d.get("profiles", []):
+    print(f"  {p.get('name', '')} - {p.get('description', '')}")
+PY
     else
         die "jq or python3 is required to read the marketplace registry"
     fi
@@ -616,9 +626,9 @@ list_themes() {
         t=$(profile_name_from_file "$f")
         desc=$(profile_desc_from_file "$f")
         if [[ "$t" == "$current" ]]; then
-            echo -e "  ${GREEN}→ $t${NC} - $desc"
+            printf '  %b→ %s%b - %s\n' "$GREEN" "$t" "$NC" "$desc"
         else
-            echo -e "  $t - $desc"
+            printf '  %s - %s\n' "$t" "$desc"
         fi
     done
 }
