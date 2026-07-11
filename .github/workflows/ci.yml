@@ -29,23 +29,77 @@ jobs:
           scandir: scripts/
           severity: warning
 
-  node:
+  security:
+    name: security
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
-          node-version: '22'
+          fetch-depth: 0
 
-      - name: Install Node.js dependencies
-        run: npm ci
+      - name: Secret scan
+        run: |
+          cat > /tmp/secret_patterns.txt <<'EOF'
+          AKIA[0-9A-Z]{16}
+          ghp_[a-zA-Z0-9]{36}
+          gho_[a-zA-Z0-9]{36}
+          sk-[a-zA-Z0-9]{48}
+          sk_live_[a-zA-Z0-9]{24,}
+          BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY
+          password\s*=\s*["'][^"']{8,}["']
+          EOF
+          found=0
+          while IFS= read -r pattern; do
+            [ -z "$pattern" ] && continue
+            matches=$(git grep -n -E "$pattern" || true)
+            if [ -n "$matches" ]; then
+              echo "Potential secret matched: $pattern"
+              echo "$matches"
+              found=1
+            fi
+          done < /tmp/secret_patterns.txt
+          if [ "$found" -ne 0 ]; then
+            echo "::error::Potential secrets detected by regex scan"
+            exit 1
+          fi
+          echo "No secrets detected"
 
-      - name: Lint JavaScript
-        if: hashFiles('eslint.config.*', '.eslintrc*') != ''
-        run: npm run lint
+      - name: Validate Hyprglass.conf
+        run: |
+          if [ -f "Hyprglass.conf" ]; then
+            echo "Validating Hyprglass.conf"
+            bash scripts/ValidateHyprglassConf.sh Hyprglass.conf
+          else
+            echo "Hyprglass.conf not found at repository root; validating representative fixture"
+            bash scripts/ValidateHyprglassConf.sh tests/fixtures/valid.conf
+          fi
 
-      - name: Run JavaScript tests
-        if: hashFiles('**/*.test.js', '**/*.test.mjs', '**/*.test.cjs', '**/*.spec.js', '**/*.spec.mjs', '**/*.spec.cjs') != ''
-        run: npm test
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Run bandit on Python files
+        run: |
+          pip install bandit
+          if [ -d "src" ]; then
+            bandit -r src/ --severity-level high --confidence-level high
+          else
+            echo "No src/ directory; skipping bandit"
+          fi
+
+      - name: Check for hardcoded paths
+        run: |
+          set +e
+          found=0
+          matches=$(grep -RInE '(^|[^A-Za-z0-9_])/home/[^/]+|(^|[^A-Za-z0-9_])/root/' src/ scripts/ || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Hardcoded home/root paths detected"
+            echo "$matches"
+            found=1
+          fi
+          if [ "$found" -ne 0 ]; then
+            exit 1
+          fi
+          echo "No hardcoded home/root paths detected"

@@ -22,13 +22,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-ok()   { printf "${GREEN}OK${NC}    - %s\n" "$1"; }
-warn() { printf "${YELLOW}WARN${NC}  - %s\n" "$1"; }
-fail() { printf "${RED}FAIL${NC}  - %s\n" "$1"; }
-info() { printf "${BLUE}INFO${NC}  - %s\n" "$1"; }
+ok()   { printf '%bOK%b    - %s\n' "$GREEN" "$NC" "$1"; }
+warn() { printf '%bWARN%b  - %s\n' "$YELLOW" "$NC" "$1"; }
+fail() { printf '%bFAIL%b  - %s\n' "$RED" "$NC" "$1"; }
+info() { printf '%bINFO%b  - %s\n' "$BLUE" "$NC" "$1"; }
 
 header() {
-    printf "\n${BLUE}==>${NC} %s\n" "$1"
+    printf '\n%b==>%b %s\n' "$BLUE" "$NC" "$1"
 }
 
 # ---------------------------------------------------------------------------
@@ -181,9 +181,9 @@ check_server() {
 # Main
 # ---------------------------------------------------------------------------
 main() {
-    printf "${BLUE}========================================${NC}\n"
-    printf "${BLUE}     HyprGlass Health Check Report${NC}\n"
-    printf "${BLUE}========================================${NC}\n"
+    printf '%b========================================%b\n' "$BLUE" "$NC"
+    printf '%b     HyprGlass Health Check Report%b\n' "$BLUE" "$NC"
+    printf '%b========================================%b\n' "$BLUE" "$NC"
     printf "Generated: %s\n" "$(date)"
 
     check_plugin_loaded
@@ -194,9 +194,9 @@ main() {
     check_config_files
     check_server
 
-    printf "\n${BLUE}========================================${NC}\n"
-    printf "${BLUE}     HyprGlass check complete.${NC}\n"
-    printf "${BLUE}========================================${NC}\n"
+    printf '\n%b========================================%b\n' "$BLUE" "$NC"
+    printf '%b     HyprGlass check complete.%b\n' "$BLUE" "$NC"
+    printf '%b========================================%b\n' "$BLUE" "$NC"
 }
 
 main "$@"
