@@ -7,7 +7,7 @@ uninstall:
 	./uninstall.sh
 
 dev:
-	python -m studio --dev
+	python -m src.server --port 8765
 
 test:
 	pytest

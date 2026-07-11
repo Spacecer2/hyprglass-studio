@@ -37,25 +37,17 @@ HyprGlass Studio is a local web UI that lets you adjust every HyprGlass paramete
 
 ## Launching the Studio
 
-### Option A — Wrapper script
+### Direct Python invocation
 
 ```bash
 cd ~/hyprglass-studio
-./launch.sh
-```
-
-`launch.sh` resolves the project root, activates any virtual-env if present, and starts the server on the default port **8765**.
-
-### Option B — Direct Python invocation
-
-```bash
-python3 server.py --port 8765
+python3 -m src.server --port 8765
 ```
 
 Any free port works:
 
 ```bash
-python3 server.py --port 9000
+python3 -m src.server --port 9000
 ```
 
 Once running, open the displayed URL in any browser:

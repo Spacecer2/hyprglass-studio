@@ -277,11 +277,11 @@ check_prereqs() {
         failures=$((failures + 1))
     fi
 
-    # jq (used by scripts)
+    # jq (used by wallust color-sync hook and helper scripts)
     if command -v jq &>/dev/null; then
         ok "jq found"
     else
-        warn "jq not found — profile switching scripts will not work until installed"
+        warn "jq not found — wallust color sync and some helper scripts will not work until installed"
         if ! $AUTO_YES && confirm "Continue without jq?"; then
             true
         elif $AUTO_YES; then
@@ -639,7 +639,7 @@ copy_configs() {
         progress_step "Copy profiles"
         if [[ -d "${SCRIPT_DIR}/profiles" ]]; then
             local n
-            n=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f \( -name '*.conf' -o -name '*.json' \) | wc -l)
+            n=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f -name '*.conf' | wc -l)
             dry "Would copy ${n} profile(s) -> ${PROFILES_DIR}/"
         fi
 
@@ -683,13 +683,12 @@ copy_configs() {
     progress_step "Profiles"
     if [[ -d "${SCRIPT_DIR}/profiles" ]]; then
         local profile_count
-        profile_count=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f \( -name '*.conf' -o -name '*.json' \) | wc -l)
+        profile_count=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f -name '*.conf' | wc -l)
         if (( profile_count > 0 )); then
             cp -a "${SCRIPT_DIR}/profiles/"*.conf "$PROFILES_DIR/" 2>/dev/null || true
-            cp -a "${SCRIPT_DIR}/profiles/"*.json "$PROFILES_DIR/" 2>/dev/null || true
             ok "Copied ${profile_count} profile(s) -> ${PROFILES_DIR}/"
         else
-            warn "No profile files found in profiles/"
+            warn "No .conf profile files found in profiles/"
         fi
     fi
 
@@ -874,27 +873,27 @@ verify_installation() {
 
     # Check profiles
     local profile_count
-    profile_count=$(find "$PROFILES_DIR" -maxdepth 1 -type f \( -name '*.conf' -o -name '*.json' \) 2>/dev/null | wc -l)
+    profile_count=$(find "$PROFILES_DIR" -maxdepth 1 -type f -name '*.conf' 2>/dev/null | wc -l)
     if (( profile_count > 0 )); then
         ok "Profiles installed: ${profile_count}"
     else
-        warn "No profiles found in ${PROFILES_DIR}"
+        warn "No .conf profiles found in ${PROFILES_DIR}"
         issues=$((issues + 1))
     fi
 
-    # Validate profile JSON
-    local json_errors=0
-    for prof in "$PROFILES_DIR"/*.conf "$PROFILES_DIR"/*.json; do
+    # Basic sanity check: .conf profiles should contain Hyprland-style assignment lines
+    local conf_errors=0
+    for prof in "$PROFILES_DIR"/*.conf; do
         [[ -f "$prof" ]] || continue
-        if ! jq empty "$prof" 2>/dev/null; then
-            warn "Invalid JSON in profile: $(basename "$prof")"
-            json_errors=$((json_errors + 1))
+        if ! grep -qE '^\s*\$?[a-zA-Z0-9_:.@]+\s*=\s*' "$prof"; then
+            warn "Profile does not appear to be valid Hyprland config: $(basename "$prof")"
+            conf_errors=$((conf_errors + 1))
         fi
     done
-    if (( json_errors == 0 )); then
-        ok "All profiles are valid JSON"
+    if (( conf_errors == 0 )); then
+        ok "All profiles look like valid Hyprland .conf files"
     else
-        issues=$((issues + json_errors))
+        issues=$((issues + conf_errors))
     fi
 
     # Check source line in hyprland.conf
@@ -987,12 +986,11 @@ print_summary() {
         echo "    Apply profile:    HyprglassProfile.sh apply <profile>"
         echo ""
         echo -e "  ${BOLD}Available profiles:${RESET}"
-        for prof in "$PROFILES_DIR"/*.conf "$PROFILES_DIR"/*.json; do
+        for prof in "$PROFILES_DIR"/*.conf; do
             [[ -f "$prof" ]] || continue
-            local name desc
-            name=$(basename "$prof" | sed 's/\.[^.]*$//')
-            desc=$(jq -r '.description // .metadata.description // "No description"' "$prof" 2>/dev/null)
-            printf "    • %-12s %s\n" "$name" "$desc"
+            local name
+            name=$(basename "$prof" .conf)
+            printf "    • %s\n" "$name"
         done
         echo ""
         echo -e "  ${BOLD}Config locations:${RESET}"

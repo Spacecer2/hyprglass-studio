@@ -31,7 +31,7 @@ EXPOSE 8765
 
 # Healthcheck for the Studio server
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health || exit 1
+    CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
 # Start the Studio server
-CMD ["python", "-m", "src.studio"]
+CMD ["python", "-m", "src.server"]

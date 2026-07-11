@@ -7,10 +7,10 @@ This document describes the REST API exposed by the Hyprglass Studio local serve
 All API endpoints are relative to:
 
 ```
-http://localhost:8421
+http://localhost:8765
 ```
 
-The server runs locally on port `8421` by default. Replace `localhost:8421` with the actual host and port if the server was started with custom network settings.
+The server runs locally on port `8765` by default. Replace `localhost:8765` with the actual host and port if the server was started with custom network settings.
 
 ## 2. Authentication
 
@@ -40,7 +40,7 @@ Returns the health status of the server.
 **curl example:**
 
 ```sh
-curl -s http://localhost:8421/api/health | jq
+curl -s http://localhost:8765/api/health | jq
 ```
 
 ---
@@ -71,7 +71,7 @@ Returns the current active configuration used by the server.
 **curl example:**
 
 ```sh
-curl -s http://localhost:8421/api/config | jq
+curl -s http://localhost:8765/api/config | jq
 ```
 
 ---
@@ -119,7 +119,7 @@ Generates a preview of a configuration without applying it to the live Hyprland 
 **curl example:**
 
 ```sh
-curl -s -X POST http://localhost:8421/api/preview \
+curl -s -X POST http://localhost:8765/api/preview \
   -H "Content-Type: application/json" \
   -d '{
     "theme": "tokyonight",
@@ -185,7 +185,7 @@ Applies a configuration to the live Hyprland session.
 **curl example:**
 
 ```sh
-curl -s -X POST http://localhost:8421/api/apply \
+curl -s -X POST http://localhost:8765/api/apply \
   -H "Content-Type: application/json" \
   -d '{
     "theme": "catppuccin",
@@ -227,7 +227,7 @@ Lists all saved configuration profiles.
 **curl example:**
 
 ```sh
-curl -s http://localhost:8421/api/profiles | jq
+curl -s http://localhost:8765/api/profiles | jq
 ```
 
 ---
@@ -270,7 +270,7 @@ Loads and applies a saved profile by name.
 **curl example:**
 
 ```sh
-curl -s -X POST http://localhost:8421/api/profile/tokyonight | jq
+curl -s -X POST http://localhost:8765/api/profile/tokyonight | jq
 ```
 
 ## 4. Error Responses
@@ -300,24 +300,24 @@ All error responses follow a consistent JSON format:
 
 ```sh
 # Health check
-curl -s http://localhost:8421/api/health | jq
+curl -s http://localhost:8765/api/health | jq
 
 # Get current config
-curl -s http://localhost:8421/api/config | jq
+curl -s http://localhost:8765/api/config | jq
 
 # Generate a preview
-curl -s -X POST http://localhost:8421/api/preview \
+curl -s -X POST http://localhost:8765/api/preview \
   -H "Content-Type: application/json" \
   -d '{"theme":"tokyonight","opacity":0.92,"blur":true}' | jq
 
 # Apply a configuration
-curl -s -X POST http://localhost:8421/api/apply \
+curl -s -X POST http://localhost:8765/api/apply \
   -H "Content-Type: application/json" \
   -d '{"theme":"catppuccin","opacity":0.90,"blur":true}' | jq
 
 # List profiles
-curl -s http://localhost:8421/api/profiles | jq
+curl -s http://localhost:8765/api/profiles | jq
 
 # Load a saved profile
-curl -s -X POST http://localhost:8421/api/profile/tokyonight | jq
+curl -s -X POST http://localhost:8765/api/profile/tokyonight | jq
 ```

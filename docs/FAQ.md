@@ -67,7 +67,7 @@
 ### Q: Why do my settings keep reverting?
 **A:** Studio server or .conf parser bug. Check FixHyprglassValues.sh.
 
-See [Configuration Guide](CONFIG.md) for detailed configuration documentation.
+See [Configuration Guide](CONFIGURATION.md) for detailed configuration documentation.
 
 ---
 
@@ -113,7 +113,7 @@ See [Configuration Guide](CONFIG.md) for detailed configuration documentation.
 ### Q: Wallust colors aren't updating. What's wrong?
 **A:** Ensure wallust is running (`wallust run`), Hyprland signals are enabled in your `hyprland.conf`, and `wallust.hooks = true` is set.
 
-See [Wallust Integration Guide](WALLUST.md) for full setup instructions.
+See [Wallust Integration Guide](WALLUST-INTEGRATION.md) for full setup instructions.
 
 ---
 

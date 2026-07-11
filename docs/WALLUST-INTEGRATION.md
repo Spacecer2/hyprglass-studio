@@ -1,6 +1,6 @@
 # Wallust Integration
 
-Hyprglass Studio extracts accent colors from your wallpaper using [wallust](https://github.com/anufrievroman/wallust), keeping the glass tint synchronized with your desktop theme automatically.
+Hyprglass Studio extracts accent colors from your wallpaper using [wallust](https://github.com/explosion-mental/wallust), keeping the glass tint synchronized with your desktop theme automatically.
 
 ## What is Wallust
 
