@@ -234,7 +234,7 @@ curl http://localhost:8765/api/health
 {
   "status": "ok",
   "version": "1.0.0",
-  "config_path": "/home/neo/.config/hypr/Hyprglass.conf"
+  "config_path": "~/.config/hypr/Hyprglass.conf"
 }
 ```
 
@@ -350,7 +350,7 @@ curl -X POST http://localhost:8765/api/apply \
 ```json
 {
   "status": "applied",
-  "config_path": "/home/neo/.config/hypr/Hyprglass.conf",
+  "config_path": "~/.config/hypr/Hyprglass.conf",
   "reloaded": true
 }
 ```

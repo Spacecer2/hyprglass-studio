@@ -6,3 +6,12 @@ dist/
 *.log
 .cache/
 *.bak
+
+# Security
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+.DS_Store
+Thumbs.db

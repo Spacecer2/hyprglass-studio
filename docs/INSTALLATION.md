@@ -48,7 +48,7 @@ You should see `hyprglass` in the output.
 ### 2. Clone This Repository
 
 ```bash
-cd ~/SSD
+cd ~
 git clone https://github.com/your-username/hyprglass-studio.git
 cd hyprglass-studio
 ```
@@ -146,7 +146,7 @@ When you update your Hyprland dots (e.g., JaKooLit's repo), your config files ma
 After a dotfile update, run the recovery script to restore glass integration:
 
 ```bash
-cd ~/SSD/hyprglass-studio
+cd ~/hyprglass-studio
 chmod +x FixHyprglassSource.sh
 ./FixHyprglassSource.sh
 ```
@@ -172,7 +172,7 @@ The installer automatically creates backups before any modification:
 **Manual backup before updates:**
 
 ```bash
-cd ~/SSD/hyprglass-studio
+cd ~/hyprglass-studio
 chmod +x BackupConfig.sh
 ./BackupConfig.sh
 ```
@@ -193,7 +193,7 @@ hyprctl reload
 To fully remove HyprGlass and restore your original configuration:
 
 ```bash
-cd ~/SSD/hyprglass-studio
+cd ~/hyprglass-studio
 chmod +x RevertHyprglass.sh
 ./RevertHyprglass.sh
 ```
@@ -225,7 +225,7 @@ rm ~/.config/hypr/glass-rules.conf
 rm -rf ~/.config/hypr/backups/
 
 # Remove the repository
-rm -rf ~/SSD/hyprglass-studio
+rm -rf ~/hyprglass-studio
 
 # Reload Hyprland
 hyprctl reload
