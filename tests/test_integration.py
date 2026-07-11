@@ -54,27 +54,10 @@ def server_url(tmp_path, monkeypatch):
     thread.join(timeout=2)
 
 
-def test_python_and_shell_validators_agree(tmp_path):
-    """A config accepted by src.server.validate_config must also pass the shell validator."""
-    conf = tmp_path / "Hyprglass.conf"
-    conf.write_text(VALID_CONFIG, encoding="utf-8")
-
-    py_valid, py_errors = app_module.validate_config(VALID_CONFIG)
-    assert py_valid is True, f"Python validator rejected valid config: {py_errors}"
-
-    result = subprocess.run(
-        ["bash", str(VALIDATOR), str(conf)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, f"Shell validator rejected config: {result.stderr}"
-
-
-def test_server_apply_and_shell_validator_agree(server_url, tmp_path):
+def test_shell_validator_accepts_server_written_config(server_url, tmp_path, monkeypatch):
     """POST a valid config through the server, then validate the written file with the shell script."""
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(app_module, "CONFIG_PATH", tmp_path / "Hyprglass.conf")
+    config_path = tmp_path / "Hyprglass.conf"
+    monkeypatch.setattr(app_module, "CONFIG_PATH", config_path)
 
     request = urllib.request.Request(
         f"{server_url}/api/apply",
@@ -87,27 +70,38 @@ def test_server_apply_and_shell_validator_agree(server_url, tmp_path):
     data = json.loads(response.read().decode("utf-8"))
     assert data.get("ok") is True
 
-    conf = tmp_path / "Hyprglass.conf"
-    assert conf.exists()
-
+    assert config_path.exists()
     result = subprocess.run(
-        ["bash", str(VALIDATOR), str(conf)],
+        ["bash", str(VALIDATOR), str(config_path)],
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, f"Shell validator rejected server-written config: {result.stderr}"
 
-    monkeypatch.undo()
+
+def test_server_rejects_invalid_config(server_url):
+    """The server should refuse to apply a config missing required Hyprglass blocks."""
+    request = urllib.request.Request(
+        f"{server_url}/api/apply",
+        data=json.dumps({"config": "not a valid config"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(request, timeout=5)
+    assert exc_info.value.code == 400
 
 
 def test_guard_restores_config_after_server_writes_invalid_state(tmp_path):
     """The server writes a valid config; we corrupt it; the guard restores it."""
-    conf = tmp_path / "Hyprglass.conf"
-    known_good_dir = tmp_path / "backups" / "hyprglass-known-good"
+    hypr_dir = tmp_path / "hypr"
+    conf = hypr_dir / "UserConfigs" / "Hyprglass.conf"
+    known_good_dir = hypr_dir / "backups" / "hyprglass-known-good"
     known_good_dir.mkdir(parents=True)
 
     # Seed known-good backup.
+    conf.parent.mkdir(parents=True)
     conf.write_text(VALID_CONFIG, encoding="utf-8")
     subprocess.run(["cp", "-a", str(conf), str(known_good_dir / "Hyprglass.conf")], check=True)
 
@@ -145,7 +139,8 @@ def test_installer_dry_run_completes():
 
 def test_guard_blocks_on_missing_config(tmp_path):
     """If Hyprglass.conf is missing, the guard should attempt a restore."""
-    known_good_dir = tmp_path / "backups" / "hyprglass-known-good"
+    hypr_dir = tmp_path / "hypr"
+    known_good_dir = hypr_dir / "backups" / "hyprglass-known-good"
     known_good_dir.mkdir(parents=True)
     (known_good_dir / "Hyprglass.conf").write_text(VALID_CONFIG, encoding="utf-8")
 
@@ -163,5 +158,5 @@ validate_conf || restore_conf
         check=False,
     )
     assert result.returncode == 0, f"Guard restore failed: {result.stderr}"
-    restored = (tmp_path / "Hyprglass.conf").read_text(encoding="utf-8")
+    restored = (hypr_dir / "UserConfigs" / "Hyprglass.conf").read_text(encoding="utf-8")
     assert "plugin:hyprglass" in restored

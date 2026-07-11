@@ -55,6 +55,7 @@ restore_conf() {
     backup=$(find_known_good)
     [[ -n "$backup" && -f "$backup" ]] || return 1
 
+    mkdir -p "$(dirname "$HYPGLASS_CONF")"
     cp -f "$backup" "$HYPGLASS_CONF"
     if command -v hyprctl &>/dev/null; then
         hyprctl reload >/dev/null 2>&1 || true
@@ -95,7 +96,10 @@ check_gpu_throttle() {
     local pct=""
 
     if command -v nvidia-smi &>/dev/null; then
-        pct=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d '[:space:]')
+        # Capture all output first to avoid SIGPIPE from head closing the pipe.
+        local nvidia_out
+        nvidia_out=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || true)
+        pct=$(echo "$nvidia_out" | head -1 | tr -d '[:space:]')
     fi
 
     # Fallback: try to find a GPU hwmon load attribute
@@ -155,5 +159,6 @@ main() {
 # Only run the daemon when this script is executed directly; do not auto-run
 # when it is sourced by tests or other scripts.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    :  # executed directly; run the daemon loop below
     main "$@"
 fi

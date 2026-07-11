@@ -5,8 +5,10 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import tempfile
 import threading
 from datetime import datetime
 from http import HTTPStatus
@@ -18,9 +20,11 @@ HOME = Path.home()
 CONFIG_PATH = HOME / ".config/hypr/UserConfigs/Hyprglass.conf"
 BACKUP_DIR = HOME / ".config/hypr/backups/hyprglass-studio"
 PREVIEW_DIR = Path("/tmp/hyprglass-studio")
+VALIDATOR = ROOT.parent / "scripts" / "ValidateHyprglassConf.sh"
+MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MiB
 
 lock = threading.Lock()
-active_preview: dict[str, Path] | None = None
+active_preview: dict[str, object] | None = None
 
 
 def json_response(handler: SimpleHTTPRequestHandler, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
@@ -35,6 +39,8 @@ def json_response(handler: SimpleHTTPRequestHandler, payload: dict, status: HTTP
 
 def read_json(handler: SimpleHTTPRequestHandler) -> dict:
     length = int(handler.headers.get("Content-Length", "0"))
+    if length < 0 or length > MAX_CONTENT_LENGTH:
+        raise ValueError("request body too large")
     raw = handler.rfile.read(length) if length else b"{}"
     return json.loads(raw.decode("utf-8"))
 
@@ -76,15 +82,46 @@ def write_config(content: str) -> None:
     CONFIG_PATH.write_text(_preserve_default_preset(content), encoding="utf-8")
 
 
+def validate_config(content: str) -> tuple[bool, list[str]]:
+    """Validate config content using the bundled shell validator.
+
+    Writes the content to a temporary file and invokes ValidateHyprglassConf.sh
+    so that validation logic stays in one place. Returns (ok, errors).
+    """
+    if not VALIDATOR.exists():
+        return False, ["validator script not found"]
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = subprocess.run(
+            ["bash", str(VALIDATOR), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True, []
+        errors = [line.strip() for line in result.stderr.splitlines() if line.strip()]
+        if not errors:
+            errors = ["validation failed"]
+        return False, errors
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 def reload_hyprland() -> None:
     subprocess.run(["hyprctl", "reload"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def launch_kitty_preview() -> subprocess.Popen[str]:
+def launch_kitty_preview() -> subprocess.Popen:
+    config_path_quoted = shlex.quote(str(CONFIG_PATH))
     message = (
         "printf 'Hyprglass preview\\n\\nThis window is temporary. Close it to restore the previous config.\\n'; "
         "printf '\\nCurrent config:\\n'; "
-        f"sed -n '1,120p' {CONFIG_PATH}; "
+        f"sed -n '1,120p' {config_path_quoted}; "
         "printf '\\n\\nPress any key to close...'; "
         "read -rn1"
     )
@@ -139,6 +176,9 @@ def apply_flow(content: str) -> dict:
     with lock:
         if active_preview is not None:
             return {"ok": False, "error": "close the preview window before applying"}
+        valid, errors = validate_config(content)
+        if not valid:
+            raise ValueError(f"invalid config: {'; '.join(errors)}")
         backup = backup_current("apply")
         write_config(content)
         reload_hyprland()
@@ -172,8 +212,10 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("missing config")
             result = preview_flow(content) if self.path == "/api/preview" else apply_flow(content)
             return json_response(self, result)
-        except Exception as exc:  # noqa: BLE001
+        except ValueError as exc:
             return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+        except Exception as exc:  # noqa: BLE001
+            return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def log_message(self, fmt, *args):  # noqa: A003
         return
