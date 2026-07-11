@@ -1,0 +1,29 @@
+{
+  "name": "hyprglass-studio",
+  "version": "1.0.0",
+  "description": "Node.js tooling for Hyprglass Studio, a glassmorphism-focused configuration and preview environment for Hyprland on Wayland/Linux.",
+  "main": "src/server.py",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "node scripts/build.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "hyprland",
+    "glass",
+    "wayland",
+    "linux"
+  ],
+  "author": "Spacecer2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Spacecer2/hyprglass-studio.git"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.0",
+    "nodemon": "^3.1.0"
+  }
+}
