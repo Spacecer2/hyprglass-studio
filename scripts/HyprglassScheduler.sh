@@ -23,7 +23,7 @@
 #   HG_SCHEDULER_PID    Path to PID file
 #                       (default: ~/.cache/.hyprglass_scheduler.pid)
 
-set -uo pipefail
+set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -287,11 +287,19 @@ show_status() {
 
     active=$(cat "$LAST_PROFILE_FILE" 2>/dev/null || echo "unknown")
 
-    if [[ -f "$SCHEDULE_FILE" && "$(schedule_count)" -gt 0 ]]; then
-        local now
-        now=$(current_minutes)
-        target=$(profile_for_minute "$now")
-        next=$(next_switch "$now")
+    if [[ -f "$SCHEDULE_FILE" ]]; then
+        if ! parse_schedule >/dev/null 2>&1; then
+            target="(schedule parse error)"
+            next="(schedule parse error)"
+        elif [[ "$(schedule_count)" -gt 0 ]]; then
+            local now
+            now=$(current_minutes)
+            target=$(profile_for_minute "$now")
+            next=$(next_switch "$now")
+        else
+            target="(no schedule entries)"
+            next="(no schedule entries)"
+        fi
     else
         target="(schedule not available)"
         next="(schedule not available)"
