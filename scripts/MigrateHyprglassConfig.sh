@@ -47,13 +47,13 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-log()   { echo -e "${CYAN}[INFO]${RESET}  $*"; }
-ok()    { echo -e "${GREEN}[ OK ]${RESET}  $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
-err()   { echo -e "${RED}[ERR ]${RESET}  $*" >&2; }
+log()   { printf '%b[INFO]%b  %s\n' "$CYAN" "$RESET" "$*"; }
+ok()    { printf '%b[ OK ]%b  %s\n' "$GREEN" "$RESET" "$*"; }
+warn()  { printf '%b[WARN]%b  %s\n' "$YELLOW" "$RESET" "$*"; }
+err()   { printf '%b[ERR ]%b  %s\n' "$RED" "$RESET" "$*" >&2; }
 fatal() { err "$*"; exit 1; }
-dry()   { echo -e "${MAGENTA}[DRY]${RESET}  $*"; }
-verb()  { $VERBOSE && echo -e "${DIM}[DBG ]${RESET}  $*" || true; }
+dry()   { printf '%b[DRY]%b  %s\n' "$MAGENTA" "$RESET" "$*"; }
+verb()  { $VERBOSE && printf '%b[DBG ]%b  %s\n' "$DIM" "$RESET" "$*" || true; }
 
 # ── Help text ────────────────────────────────────────────────────────────────
 show_help() {
@@ -141,7 +141,7 @@ print_report() {
         return
     fi
 
-    echo -e "${BOLD}Migration report:${RESET}"
+    printf '%bMigration report:%b\n' "$BOLD" "$RESET"
     echo "  Backups saved to: ${BACKUP_DIR}"
     echo ""
     for line in "${REPORT_LINES[@]}"; do
@@ -162,7 +162,7 @@ confirm() {
         return 0
     fi
     local prompt="${1:-Continue?}"
-    echo -en "${BOLD}${prompt} [Y/n]${RESET} "
+    printf '%b%s [Y/n]%b ' "$BOLD" "$prompt" "$RESET"
     local answer
     read -r answer
     [[ -z "$answer" || "$answer" =~ ^[Yy] ]]
@@ -693,9 +693,9 @@ main() {
     parse_args "$@"
 
     echo ""
-    echo -e "${BOLD}HyprGlass Studio Config Migration Tool${RESET}"
+    printf '%bHyprGlass Studio Config Migration Tool%b\n' "$BOLD" "$RESET"
     if $DRY_RUN; then
-        echo -e "${YELLOW}  ── DRY RUN MODE ──${RESET}"
+        printf '%b  ── DRY RUN MODE ──%b\n' "$YELLOW" "$RESET"
     fi
     echo "────────────────────────────────────────────────────────────"
     echo ""
