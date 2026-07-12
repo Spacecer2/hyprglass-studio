@@ -1114,6 +1114,11 @@ make_executable() {
 
 # ── Verification ────────────────────────────────────────────────────────────
 verify_installation() {
+    if $DRY_RUN; then
+        log "Skipping verification in dry-run mode (files are not written)."
+        return 0
+    fi
+
     log "Running verification..."
     local issues=0
 
