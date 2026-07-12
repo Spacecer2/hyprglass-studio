@@ -18,6 +18,9 @@ PROFILES_DIR="${HYPR_DIR}/hyprglass-profiles"
 WALLUST_DIR="${HOME}/.config/wallust"
 WALLUST_TEMPLATES_DIR="${WALLUST_DIR}/templates"
 
+STUDIO_DIR="${HYPR_DIR}/hyprglass-studio"
+STUDIO_SRC_DIR="${STUDIO_DIR}/src"
+
 HYPRLAND_CONF="${HYPR_DIR}/hyprland.conf"
 STARTUP_CONF="${USER_CONFIGS_DIR}/Startup_Apps.conf"
 KEYBINDS_CONF="${USER_CONFIGS_DIR}/Keybinds.conf"
@@ -39,6 +42,7 @@ SKIP_WALLUST=false
 DRY_RUN=false
 VERBOSE=false
 ALLOW_ROOT=false
+FORCE=false
 
 # ── Security guards ──────────────────────────────────────────────────────────
 require_non_root() {
@@ -54,9 +58,11 @@ require_non_root() {
 
 validate_target_paths() {
     # All target paths must live under HOME to avoid accidental system writes.
-    local path
-    for path in "$HYPR_DIR" "$WALLUST_DIR"; do
-        if [[ -n "${path:-}" && "$path" != "$HOME"* ]]; then
+    local path home_prefix
+    home_prefix="$HOME"
+    [[ "$home_prefix" != / ]] && home_prefix="${home_prefix%/}/"
+    for path in "$HYPR_DIR" "$USER_CONFIGS_DIR" "$SCRIPTS_DIR" "$PROFILES_DIR" "$WALLUST_DIR" "$BACKUP_DIR" "$STUDIO_DIR"; do
+        if [[ -n "${path:-}" && "$path" != "$HOME" && "$path" != "$home_prefix"* ]]; then
             fatal "Refusing to install outside \$HOME: $path"
         fi
     done
@@ -159,6 +165,7 @@ ${BOLD}OPTIONS${RESET}
     ${BOLD}--skip-wallust${RESET}   Skip wallust installation / integration check
     ${BOLD}--verbose, -v${RESET}    Print extra debug information
     ${BOLD}--allow-root${RESET}     Allow running as root (not recommended)
+    ${BOLD}--force${RESET}          Overwrite existing config and bypass validation
     ${BOLD}--help, -h${RESET}       Show this help message and exit
 
 ${BOLD}EXAMPLES${RESET}
@@ -207,6 +214,7 @@ parse_args() {
             --dry-run)       DRY_RUN=true ;;
             --verbose|-v)    VERBOSE=true ;;
             --allow-root)    ALLOW_ROOT=true ;;
+            --force)         FORCE=true ;;
             --help|-h)       show_help ;;
             *) fatal "Unknown option: $1 (use --help for usage)" ;;
         esac
@@ -550,7 +558,9 @@ install_wallust() {
 # ── Generate default Hyprglass.conf ──────────────────────────────────────────
 generate_hyprglass_conf() {
     if [[ -f "$HYPGLASS_CONF_DEST" ]]; then
-        if confirm "Hyprglass.conf already exists. Overwrite with defaults?"; then
+        if $FORCE; then
+            log "--force set: overwriting existing Hyprglass.conf"
+        elif confirm "Hyprglass.conf already exists. Overwrite with defaults?"; then
             true
         else
             ok "Keeping existing Hyprglass.conf"
@@ -617,15 +627,49 @@ decoration {
 }
 
 # Compatibility opacity overrides so the effect is visible on opaque apps
-windowrule = match:tag browser, tag +hyprglass_enabled
-windowrule = match:tag browser, tag +hyprglass_preset_glass
 windowrule = match:class ^(waterfox)$, tag +browser
+windowrule = match:class ^(waterfox)$, tag +hyprglass_enabled
+windowrule = match:class ^(waterfox)$, tag +hyprglass_preset_glass
 windowrule = match:class ^(waterfox)$, opacity 0.75 0.65
 EOF
 
     chmod 644 "$tmp_conf"
     mv -f "$tmp_conf" "$HYPGLASS_CONF_DEST"
     trap - RETURN
+
+    if ! $FORCE; then
+        local validation_failed=false
+        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$HYPGLASS_CONF_DEST"; then
+            err "Validation failed: blur_strength is not 3.4"
+            validation_failed=true
+        fi
+        if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$HYPGLASS_CONF_DEST"; then
+            err "Validation failed: found legacy windowrule v2 syntax (use match: instead)"
+            validation_failed=true
+        fi
+        if grep -E '^[[:space:]]*windowrule' "$HYPGLASS_CONF_DEST" | grep -qvE 'match:class[[:space:]]+\^\(.*\)\$'; then
+            err "Validation failed: found windowrule line not using match:class ^(...)$ syntax"
+            validation_failed=true
+        fi
+        if grep -qE 'layer:surface' "$HYPGLASS_CONF_DEST"; then
+            err "Validation failed: found layer:surface values (use waybar, swaync, etc.)"
+            validation_failed=true
+        fi
+        if ! grep -qE '^[[:space:]]*layers:namespaces[[:space:]]*=[[:space:]]*.*(waybar|swaync)' "$HYPGLASS_CONF_DEST"; then
+            err "Validation failed: layers:namespaces missing waybar/swaync values"
+            validation_failed=true
+        fi
+        if awk '/^plugin:hyprglass \{/{in_plugin=1} /^\}/{if(in_plugin) in_plugin=0} !in_plugin && /^[[:space:]]*(dark|light):/{print}' "$HYPGLASS_CONF_DEST" | grep -q .; then
+            err "Validation failed: dark/light theme values found outside plugin:hyprglass block"
+            validation_failed=true
+        fi
+
+        if $validation_failed; then
+            rm -f "$HYPGLASS_CONF_DEST"
+            fatal "Generated Hyprglass.conf failed validation. Use --force to bypass."
+        fi
+    fi
+
     ok "Generated ${HYPGLASS_CONF_DEST}"
 }
 
@@ -829,6 +873,75 @@ copy_configs() {
     fi
 
     progress_step "Done"
+    echo ""
+}
+
+# ── Studio files installation ───────────────────────────────────────────────
+install_studio_files() {
+    log "Installing HyprGlass Studio files..."
+
+    local studio_files=(
+        app.js
+        schema.js
+        bundle.js
+        styles.css
+        index.html
+        server.py
+    )
+
+    if $DRY_RUN; then
+        dry "Would create: ${STUDIO_SRC_DIR}"
+        for file in "${studio_files[@]}"; do
+            dry "Would copy src/${file} -> ${STUDIO_SRC_DIR}/${file}"
+        done
+        dry "Would run: ${SCRIPT_DIR}/scripts/ValidateAppJS.sh"
+        echo ""
+        return
+    fi
+
+    # Create Studio source directory
+    mkdir -p "$STUDIO_SRC_DIR"
+
+    # Copy required Studio files from the repository source tree
+    local copied=0
+    local missing=()
+    for file in "${studio_files[@]}"; do
+        local src_file="${SCRIPT_DIR}/src/${file}"
+        if [[ -f "$src_file" ]]; then
+            cp -a "$src_file" "${STUDIO_SRC_DIR}/${file}"
+            verb "Copied ${src_file} -> ${STUDIO_SRC_DIR}/${file}"
+            copied=$((copied + 1))
+        else
+            missing+=("$file")
+            err "Missing Studio source file: ${src_file}"
+        fi
+    done
+
+    if (( ${#missing[@]} > 0 )); then
+        fatal "Missing ${#missing[@]} required Studio file(s). Aborting installation."
+    fi
+
+    ok "Copied ${copied} Studio file(s) -> ${STUDIO_SRC_DIR}/"
+
+    # Validate the copied JavaScript files by running ValidateAppJS.sh against
+    # the installed Studio tree. The validator expects a scripts/ sibling of src/.
+    local validate_tmp_dir
+    validate_tmp_dir=$(mktemp -d)
+    trap 'rm -rf "${validate_tmp_dir}"' RETURN
+
+    mkdir -p "${validate_tmp_dir}/scripts"
+    cp -a "${SCRIPT_DIR}/scripts/ValidateAppJS.sh" "${validate_tmp_dir}/scripts/ValidateAppJS.sh"
+    ln -sf "$STUDIO_SRC_DIR" "${validate_tmp_dir}/src"
+
+    log "Running ValidateAppJS.sh on installed Studio files..."
+    if ! bash "${validate_tmp_dir}/scripts/ValidateAppJS.sh"; then
+        fatal "Studio JavaScript validation failed. Aborting installation."
+    fi
+    ok "Studio JavaScript validation passed"
+
+    trap - RETURN
+    rm -rf "$validate_tmp_dir"
+
     echo ""
 }
 

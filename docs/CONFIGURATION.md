@@ -134,9 +134,9 @@ HyprGlass uses Hyprland tags to control per-window glass behavior.
 ### Example Rules
 
 ```conf
-windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$
-windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$
-windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$
+windowrule = match:class ^(firefox)$, tag +hyprglass_disabled
+windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle
+windowrule = match:class ^(thunar)$, tag +hyprglass_enabled
 ```
 
 ## Presets
@@ -213,7 +213,7 @@ decoration {
 
 # ─── Window Rules ──────────────────────────────────────────────────
 
-windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$
-windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$
-windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$
+windowrule = match:class ^(firefox)$, tag +hyprglass_disabled
+windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle
+windowrule = match:class ^(thunar)$, tag +hyprglass_enabled
 ```

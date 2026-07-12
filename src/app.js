@@ -16,14 +16,37 @@ import {
 
 const STORAGE_KEY = 'hyprglass-studio.state.v1';
 const app = document.getElementById('app');
+const loadErrorBanner = document.getElementById('load-error');
+
+const caughtErrors = [];
+let syntaxStatus = { ok: null, message: '' };
+
+window.addEventListener('error', (event) => {
+  const message = event.error?.message || event.message || 'Unknown error';
+  caughtErrors.push({ type: 'error', message, time: Date.now() });
+  showError('Runtime error', message);
+  if (loadErrorBanner) loadErrorBanner.hidden = false;
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason;
+  const message = reason instanceof Error ? reason.message : String(reason || 'Unhandled rejection');
+  caughtErrors.push({ type: 'rejection', message, time: Date.now() });
+  showError('Unhandled promise rejection', message);
+  if (loadErrorBanner) loadErrorBanner.hidden = false;
+});
 
 const savedState = loadState();
 let state = savedState.state;
 let activeSection = savedState.activeSection || 'global';
+let isApplying = false;
+let pendingConfirm = null;
 
 render();
 wireEvents();
 persist();
+
+if (loadErrorBanner) loadErrorBanner.hidden = true;
 
 function loadState() {
   try {
@@ -129,15 +152,118 @@ function liveConfigText() {
   return formatConf(state);
 }
 
+const API_TIMEOUT_MS = 15000;
+
+function validateConfig() {
+  const errors = [];
+  const text = liveConfigText();
+
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    errors.push('Generated config is empty.');
+    return { valid: false, errors };
+  }
+
+  if (text.length > 1024 * 1024) {
+    errors.push('Generated config is unexpectedly large (>1 MB).');
+  }
+
+  if (state.output_format === 'conf') {
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('= ') || line.startsWith('=')) {
+        errors.push(`Line ${i + 1}: missing key before '='`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+function checkSyntax() {
+  const text = liveConfigText();
+  const issues = [];
+
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    issues.push('Config is empty.');
+  } else {
+    const lines = text.split('\n');
+    if (state.output_format === 'conf') {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('#')) continue;
+        if (line.startsWith('=') || !line.includes('=')) {
+          issues.push(`Line ${i + 1}: expected "key = value" form`);
+        }
+      }
+    } else if (state.output_format === 'lua') {
+      let openBraces = 0;
+      let openParens = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const ch of line) {
+          if (ch === '{') openBraces++;
+          if (ch === '}') openBraces--;
+          if (ch === '(') openParens++;
+          if (ch === ')') openParens--;
+        }
+        if (openBraces < 0 || openParens < 0) {
+          issues.push(`Line ${i + 1}: unexpected closing bracket`);
+          break;
+        }
+      }
+      if (openBraces !== 0) issues.push('Unbalanced braces in Lua output.');
+      if (openParens !== 0) issues.push('Unbalanced parentheses in Lua output.');
+    }
+  }
+
+  if (issues.length === 0) {
+    syntaxStatus = { ok: true, message: 'Syntax looks good' };
+    toast('Syntax check passed', 'success');
+  } else {
+    syntaxStatus = { ok: false, message: issues.join('; ') };
+    showError('Syntax check failed', issues.join('; '));
+  }
+  render();
+}
+
 async function sendConfig(kind) {
-  const response = await fetch(`/api/${kind}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ config: liveConfigText() }),
-  });
-  const payload = await response.json().catch(() => ({}));
+  const validation = validateConfig();
+  if (!validation.valid) {
+    throw new Error(`Config validation failed:\n${validation.errors.join('\n')}`);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(`/api/${kind}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: liveConfigText() }),
+      signal: controller.signal,
+    });
+  } catch (networkError) {
+    clearTimeout(timeoutId);
+    if (networkError.name === 'AbortError') {
+      throw new Error(`Request to /api/${kind} timed out after ${API_TIMEOUT_MS / 1000}s`);
+    }
+    throw new Error(`Network error: ${networkError.message || 'Could not reach server'}`);
+  }
+  clearTimeout(timeoutId);
+
+  const contentType = response.headers.get('content-type') || '';
+  let payload = {};
+  if (contentType.includes('application/json')) {
+    payload = await response.json().catch(() => ({}));
+  } else {
+    const text = await response.text().catch(() => '');
+    payload = { raw: text };
+  }
+
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `failed to ${kind}`);
+    throw new Error(payload.error || `Server returned ${response.status} ${response.statusText} for /api/${kind}`);
   }
   return payload;
 }
@@ -145,9 +271,9 @@ async function sendConfig(kind) {
 async function copyExport() {
   try {
     await navigator.clipboard.writeText(exportText());
-    toast('Copied config to clipboard.');
+    toast('Copied config to clipboard.', 'success');
   } catch {
-    toast('Clipboard access was blocked.');
+    showError('Clipboard access was blocked');
   }
 }
 
@@ -162,13 +288,41 @@ function downloadExport() {
   URL.revokeObjectURL(url);
 }
 
-function toast(message) {
+function toast(message, type = 'info') {
   const node = document.getElementById('toast');
   if (!node) return;
   node.textContent = message;
+  node.dataset.type = type;
   node.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => node.classList.remove('show'), 1800);
+  const duration = type === 'error' ? 5000 : 2600;
+  toast.timer = setTimeout(() => node.classList.remove('show'), duration);
+}
+
+function showError(message, detail = '') {
+  const summary = detail ? `${message}: ${detail}` : message;
+  toast(summary, 'error');
+  // Also log to console for debugging.
+  console.error(`Hyprglass Studio: ${summary}`);
+}
+
+function confirmDialog(message, onConfirm) {
+  if (pendingConfirm) return;
+  pendingConfirm = { message, onConfirm };
+  render();
+}
+
+function closeConfirm(confirmed) {
+  if (!pendingConfirm) return;
+  const { onConfirm } = pendingConfirm;
+  pendingConfirm = null;
+  render();
+  if (confirmed) onConfirm();
+}
+
+function setApplying(value) {
+  isApplying = value;
+  render();
 }
 
 function wireEvents() {
@@ -221,52 +375,77 @@ function wireEvents() {
   });
 
   app.addEventListener('click', async (event) => {
-    const action = event.target.dataset.action;
+    const target = event.target;
+    const action = target.dataset.action;
     if (!action) return;
+
+    if (action === 'confirm-yes') return closeConfirm(true);
+    if (action === 'confirm-no') return closeConfirm(false);
+
     if (action === 'section') {
-      activeSection = event.target.dataset.section;
+      activeSection = target.dataset.section;
       persist();
       render();
       return;
     }
-    if (action === 'reset') return resetState();
+
+    if (action === 'reset') {
+      confirmDialog('Reset all settings to their default values? This cannot be undone.', () => {
+        resetState();
+        toast('Settings reset to defaults.', 'success');
+      });
+      return;
+    }
+
     if (action === 'preview') {
       try {
         await sendConfig('preview');
-        toast('Preview opened in kitty.');
+        toast('Preview opened in kitty.', 'success');
       } catch (error) {
-        toast(error.message);
+        showError('Preview failed', error.message);
       }
       return;
     }
+
     if (action === 'apply') {
-      try {
-        await sendConfig('apply');
-        toast('Applied to Hyprland.');
-      } catch (error) {
-        toast(error.message);
-      }
+      confirmDialog('Apply the current config to Hyprland?', async () => {
+        setApplying(true);
+        try {
+          await sendConfig('apply');
+          toast('Applied to Hyprland.', 'success');
+        } catch (error) {
+          showError('Apply failed', error.message);
+        } finally {
+          setApplying(false);
+        }
+      });
       return;
     }
+
+    if (action === 'check-syntax') return checkSyntax();
     if (action === 'copy') return copyExport();
     if (action === 'download') return downloadExport();
-    if (action === 'set-format') return setNested('output_format', event.target.dataset.format);
-    if (action === 'set-theme') return setNested('preview_theme', event.target.dataset.theme);
+    if (action === 'set-format') return setNested('output_format', target.dataset.format);
+    if (action === 'set-theme') return setNested('preview_theme', target.dataset.theme);
+
     if (action === 'sample-layers') {
       setNested('layers.namespaces', 'waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi');
       setNested('layers.exclude_namespaces', '');
       setNested('layers.preset', 'subtle');
       setNested('layers.namespace_presets', 'waybar:subtle, quickshell:bezel:ui');
       setNested('layers.namespace_mask_thresholds', 'waybar=0.05, quickshell:overview=0.3, quickshell:bezel=0.3, rofi=0.05');
+      return;
     }
-      if (action === 'add-window-rule') {
-        const rules = [...(state.window_rules || [])];
-        rules.push({ enabled: false, match: '', action: '', description: '' });
+
+    if (action === 'add-window-rule') {
+      const rules = [...(state.window_rules || [])];
+      rules.push({ enabled: false, match: '', action: '', description: '' });
       setNested('window_rules', rules);
       return;
     }
+
     if (action === 'remove-window-rule') {
-      const idx = Number(event.target.dataset.index);
+      const idx = Number(target.dataset.index);
       if (Number.isFinite(idx)) {
         const rules = [...(state.window_rules || [])];
         rules.splice(idx, 1);
@@ -275,13 +454,29 @@ function wireEvents() {
       return;
     }
   });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.ctrlKey && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      app.querySelector('[data-action="apply"]')?.click();
+      return;
+    }
+    if (event.ctrlKey && event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      app.querySelector('[data-action="preview"]')?.click();
+      return;
+    }
+    if (event.key === 'Escape' && pendingConfirm) {
+      closeConfirm(false);
+    }
+  });
 }
 
 function render() {
   const summary = summarizeState(state);
   const preview = exportText();
   app.innerHTML = `
-    <div class="shell">
+    <div class="shell ${isApplying ? 'applying' : ''}">
       <aside class="sidebar">
         <div class="brand">
           <h1>Hyprglass Studio</h1>
@@ -296,19 +491,8 @@ function render() {
           ${navButton('export', 'Export')}
         </nav>
         <div class="meta">
-          <div class="panel">
-            <h3>State</h3>
-            <div class="badge-row" style="margin-top:10px">
-              <span class="badge good">${summary.activeTheme} preview</span>
-              <span class="badge ${summary.enabled ? 'good' : 'warn'}">plugin ${summary.enabled ? 'on' : 'off'}</span>
-              <span class="badge">${summary.globals} globals</span>
-              <span class="badge">${summary.themeCount} theme values</span>
-              <span class="badge ${summary.layersEnabled ? 'good' : 'warn'}">layers ${summary.layersEnabled ? 'on' : 'off'}</span>
-              <span class="badge">${summary.activeRules} rules</span>
-            </div>
-            <p class="help" style="margin-top:10px">Resolved config is previewed in the right panel and saved in your browser's local storage.</p>
-          </div>
-          <button class="action" data-action="reset">Reset to defaults</button>
+          ${renderStatusPanel(summary)}
+          <button class="action" data-action="reset" title="Reset all settings to defaults">Reset to defaults</button>
         </div>
       </aside>
 
@@ -320,8 +504,9 @@ function render() {
           </div>
           <div class="actions">
             ${activeSection === 'layers' ? '<button class="action" data-action="sample-layers">Use sample layers</button>' : ''}
-            <button class="action" data-action="preview">Preview</button>
-            <button class="action primary" data-action="apply">Apply</button>
+            <button class="action" data-action="check-syntax" title="Validate generated config syntax">Check syntax</button>
+            <button class="action" data-action="preview" title="Preview in kitty (Ctrl+P)">Preview</button>
+            <button class="action primary" data-action="apply" title="Apply to Hyprland (Ctrl+S)" ${isApplying ? 'disabled' : ''}>Apply</button>
             <button class="action" data-action="copy">Copy config</button>
             <button class="action primary" data-action="download">Download</button>
           </div>
@@ -368,7 +553,74 @@ function render() {
         </div>
       </aside>
     </div>
-    <div id="toast" class="toast" aria-live="polite"></div>
+    ${renderConfirmDialog()}
+    ${renderLoadingOverlay()}
+    <div id="toast" class="toast" aria-live="polite" role="status"></div>
+  `;
+}
+
+function renderStatusPanel(summary) {
+  return `
+    <div class="panel status-panel">
+      <h3>Status</h3>
+      <div class="status-grid">
+        <div class="status-item">
+          <span class="status-label">Plugin</span>
+          <span class="badge ${summary.enabled ? 'good' : 'warn'}">${summary.enabled ? 'Enabled' : 'Disabled'}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Preview theme</span>
+          <span class="badge good">${summary.activeTheme}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Layers</span>
+          <span class="badge ${summary.layersEnabled ? 'good' : 'warn'}">${summary.layersEnabled ? 'On' : 'Off'}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Globals</span>
+          <span class="badge">${summary.globals}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Theme values</span>
+          <span class="badge">${summary.themeCount}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Active rules</span>
+          <span class="badge">${summary.activeRules}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Syntax check</span>
+          <span class="badge ${syntaxStatus.ok === true ? 'good' : syntaxStatus.ok === false ? 'warn' : ''}" title="${escapeHtml(syntaxStatus.message || 'Run Check syntax to validate output')}">${syntaxStatus.ok === true ? 'OK' : syntaxStatus.ok === false ? 'Issues' : 'Not checked'}</span>
+        </div>
+      </div>
+      <p class="help">Resolved config is previewed in the right panel and saved in your browser's local storage.</p>
+    </div>
+  `;
+}
+
+function renderConfirmDialog() {
+  if (!pendingConfirm) return '';
+  return `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="modal">
+        <h3 id="confirm-title">Confirm</h3>
+        <p>${escapeHtml(pendingConfirm.message)}</p>
+        <div class="modal-actions">
+          <button class="action" data-action="confirm-no">Cancel</button>
+          <button class="action primary" data-action="confirm-yes">Confirm</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLoadingOverlay() {
+  if (!isApplying) return '';
+  return `
+    <div class="loading-overlay" role="status" aria-live="polite">
+      <div class="spinner"></div>
+      <span>Applying config to Hyprland…</span>
+    </div>
   `;
 }
 

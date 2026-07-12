@@ -105,7 +105,8 @@ ensure_source_line() {
     log_warn "Hyprglass source line missing; re-adding..."
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
     trap 'rm -f "${tmp}"' RETURN
 
     if file_contains "${HYPRLAND_CONF}" '^[[:space:]]*source[[:space:]]*='; then
@@ -140,7 +141,8 @@ ensure_exec_line() {
     log_warn "FixHyprglassValues.sh exec-once missing; re-adding..."
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
     trap 'rm -f "${tmp}"' RETURN
 
     if file_contains "${HYPRLAND_CONF}" '^[[:space:]]*exec-once[[:space:]]*='; then

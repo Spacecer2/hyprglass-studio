@@ -10,8 +10,12 @@ set -euo pipefail
 # Configuration
 # ---------------------------------------------------------------------------
 HYPRGLASS_PLUGIN_NAME="hyprglass"
-HYPRGLASS_CONFIG_DIR="${HOME}/.config/hyprglass"
-HYPRGLASS_SOCKET_DIR="/tmp/hyprglass"
+HYPRGLASS_CONFIG_DIR="${HOME}/.config/hypr"
+HYPRGLASS_USER_CONFIG_DIR="${HYPRGLASS_CONFIG_DIR}/UserConfigs"
+HYPRGLASS_PROFILES_DIR="${HYPRGLASS_CONFIG_DIR}/hyprglass-profiles"
+HYPRGLASS_SCRIPTS_DIR="${HYPRGLASS_CONFIG_DIR}/scripts"
+HYPRGLASS_LOGS_DIR="${HYPRGLASS_CONFIG_DIR}/logs"
+HYPRGLASS_STUDIO_PORT="${HYPRGLASS_STUDIO_PORT:-8765}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -126,14 +130,18 @@ check_opacity() {
     fi
 }
 
-# 6. Check if config files exist
+# 6. Check if config files and directories exist
 check_config_files() {
     header "Config Files"
 
     local files=(
-        "${HYPRGLASS_CONFIG_DIR}/hyprglass.conf"
-        "${HYPRGLASS_CONFIG_DIR}/presets.conf"
-        "${HYPRGLASS_CONFIG_DIR}/profiles.conf"
+        "${HYPRGLASS_USER_CONFIG_DIR}/Hyprglass.conf"
+    )
+
+    local dirs=(
+        "${HYPRGLASS_PROFILES_DIR}"
+        "${HYPRGLASS_SCRIPTS_DIR}"
+        "${HYPRGLASS_LOGS_DIR}"
     )
 
     local found_any=false
@@ -146,34 +154,50 @@ check_config_files() {
         fi
     done
 
+    for dir in "${dirs[@]}"; do
+        if [[ -d "${dir}" ]]; then
+            ok "Found directory ${dir}"
+        else
+            warn "Missing directory ${dir}"
+        fi
+    done
+
     if [[ "${found_any}" == "false" ]]; then
-        warn "No HyprGlass config files found in ${HYPRGLASS_CONFIG_DIR}"
+        warn "No HyprGlass config files found in ${HYPRGLASS_USER_CONFIG_DIR}"
     fi
 }
 
-# 7. Check if server is running
+# 7. Check if Studio server is running and logs exist
 check_server() {
-    header "Server Status"
+    header "Studio Server Status"
 
-    local pid_file="${HYPRGLASS_SOCKET_DIR}/hyprglass.pid"
-    local socket="${HYPRGLASS_SOCKET_DIR}/hyprglass.sock"
+    local port="${HYPRGLASS_STUDIO_PORT}"
+    local listening=false
 
-    if [[ -S "${socket}" ]]; then
-        ok "HyprGlass socket exists: ${socket}"
-    else
-        warn "HyprGlass socket not found: ${socket}"
+    if command -v ss &>/dev/null; then
+        if ss -ltn 2>/dev/null | grep -qE ":${port}[[:space:]]"; then
+            listening=true
+        fi
+    elif command -v netstat &>/dev/null; then
+        if netstat -ltn 2>/dev/null | grep -qE ":${port}[[:space:]]"; then
+            listening=true
+        fi
     fi
 
-    if [[ -f "${pid_file}" ]]; then
-        local pid
-        pid=$(cat "${pid_file}")
-        if kill -0 "${pid}" 2>/dev/null; then
-            ok "HyprGlass server is running (PID: ${pid})"
-        else
-            warn "Stale PID file found (PID: ${pid}), server not running"
-        fi
+    if [[ "${listening}" == "true" ]]; then
+        ok "HyprGlass Studio server is listening on port ${port}"
     else
-        warn "HyprGlass PID file not found: ${pid_file}"
+        warn "HyprGlass Studio server not detected on port ${port}"
+    fi
+
+    if [[ -d "${HYPRGLASS_LOGS_DIR}" ]]; then
+        local log_files
+        log_files=$(find "${HYPRGLASS_LOGS_DIR}" -maxdepth 1 -type f -name 'hyprglass*.log' 2>/dev/null)
+        if [[ -n "${log_files}" ]]; then
+            ok "Found HyprGlass log files in ${HYPRGLASS_LOGS_DIR}"
+        else
+            warn "No hyprglass*.log files found in ${HYPRGLASS_LOGS_DIR}"
+        fi
     fi
 }
 

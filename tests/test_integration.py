@@ -21,6 +21,7 @@ VALIDATOR = PROJECT_ROOT / "scripts" / "ValidateHyprglassConf.sh"
 GUARD_SCRIPT = PROJECT_ROOT / "scripts" / "HyprglassGuard.sh"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 VALID_CONFIG = FIXTURES.joinpath("valid.conf").read_text(encoding="utf-8")
+TEST_TOKEN = "integration-test-token"
 
 
 def find_free_port() -> int:
@@ -40,6 +41,7 @@ def server_url(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "CONFIG_PATH", tmp_path / "Hyprglass.conf")
     monkeypatch.setattr(app_module, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(app_module, "PREVIEW_DIR", tmp_path / "preview")
+    monkeypatch.setattr(app_module, "STUDIO_TOKEN", TEST_TOKEN)
     monkeypatch.setattr(app_module, "reload_hyprland", lambda: None)
     monkeypatch.setattr(app_module, "launch_kitty_preview", lambda: None)
 
@@ -54,16 +56,23 @@ def server_url(tmp_path, monkeypatch):
     thread.join(timeout=2)
 
 
+def _api_request(url: str, data: bytes, token: str = TEST_TOKEN) -> urllib.request.Request:
+    return urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "X-HyprGlass-Token": token},
+        method="POST",
+    )
+
+
 def test_shell_validator_accepts_server_written_config(server_url, tmp_path, monkeypatch):
     """POST a valid config through the server, then validate the written file with the shell script."""
     config_path = tmp_path / "Hyprglass.conf"
     monkeypatch.setattr(app_module, "CONFIG_PATH", config_path)
 
-    request = urllib.request.Request(
+    request = _api_request(
         f"{server_url}/api/apply",
         data=json.dumps({"config": VALID_CONFIG}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
     response = urllib.request.urlopen(request, timeout=5)
     assert response.status == 200
@@ -82,11 +91,9 @@ def test_shell_validator_accepts_server_written_config(server_url, tmp_path, mon
 
 def test_server_rejects_invalid_config(server_url):
     """The server should refuse to apply a config missing required Hyprglass blocks."""
-    request = urllib.request.Request(
+    request = _api_request(
         f"{server_url}/api/apply",
         data=json.dumps({"config": "not a valid config"}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
     with pytest.raises(urllib.error.HTTPError) as exc_info:
         urllib.request.urlopen(request, timeout=5)
