@@ -311,6 +311,8 @@ check_prereqs() {
         local ver
         ver=$(hyprctl version 2>/dev/null | head -1 || echo "unknown")
         ok "Hyprland found: ${ver}"
+    elif $DRY_RUN; then
+        warn "hyprctl not found — skipping Hyprland check in dry-run mode"
     else
         err "hyprctl not found — Hyprland is not installed or not in PATH"
         failures=$((failures + 1))
@@ -319,6 +321,8 @@ check_prereqs() {
     # hyprpm
     if command -v hyprpm &>/dev/null; then
         ok "hyprpm found"
+    elif $DRY_RUN; then
+        warn "hyprpm not found — skipping plugin-manager check in dry-run mode"
     else
         err "hyprpm not found — install the Hyprland plugin manager"
         failures=$((failures + 1))

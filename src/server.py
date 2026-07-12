@@ -233,8 +233,7 @@ class Handler(SimpleHTTPRequestHandler):
         content = index.read_text(encoding="utf-8")
         if STUDIO_TOKEN and "</head>" in content:
             meta = (
-                '<meta name="hyprglass-token" '
-                f'content="{html.escape(STUDIO_TOKEN)}">\n'
+                f'<meta name="hyprglass-token" content="{html.escape(STUDIO_TOKEN)}">\n'
             )
             content = content.replace("</head>", meta + "</head>", 1)
         data = content.encode("utf-8")
@@ -288,9 +287,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("missing config")
             result = (
-                preview_flow(content)
-                if path == "/api/preview"
-                else apply_flow(content)
+                preview_flow(content) if path == "/api/preview" else apply_flow(content)
             )
             return json_response(self, result)
         except ValueError as exc:

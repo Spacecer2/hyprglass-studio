@@ -67,7 +67,10 @@ def test_validator_accepts_valid_configs(fixture_name):
         ("invalid_numeric.conf", "blur_strength must be between"),
         ("invalid_decoration.conf", "decoration.active_opacity must be between"),
         ("invalid_windowrule_order.conf", "window rule missing 'match:' prefix"),
-        ("invalid_theme_outside_block.conf", "theme key found outside plugin:hyprglass block"),
+        (
+            "invalid_theme_outside_block.conf",
+            "theme key found outside plugin:hyprglass block",
+        ),
     ],
 )
 def test_validator_rejects_invalid_configs(fixture_name, expected_error):
