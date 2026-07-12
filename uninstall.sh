@@ -160,7 +160,8 @@ run_with_spinner() {
 
 # ── Create restore point ─────────────────────────────────────────────────────
 create_restore_point() {
-    local restore_dir="${HYPR_DIR}/backups/hyprglass-uninstall-$(date +%Y%m%d-%H%M%S)"
+    local restore_dir
+    restore_dir="${HYPR_DIR}/backups/hyprglass-uninstall-$(date +%Y%m%d-%H%M%S)"
     RESTORE_DIR="$restore_dir"
 
     if $DRY_RUN; then
