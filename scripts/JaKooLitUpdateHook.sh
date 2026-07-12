@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2016
 # JaKooLitUpdateHook.sh — Restore HyprGlass config after JaKooLit's copy.sh
 #
 # This hook re-applies HyprGlass-specific configuration that JaKooLit's update

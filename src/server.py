@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hmac
+import html
 import json
 import os
 import re
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import urllib.parse
 from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -131,12 +133,20 @@ def reload_hyprland() -> None:
 
 
 def _check_token(handler: SimpleHTTPRequestHandler) -> bool:
-    """Return True if the request is authenticated (or auth is disabled)."""
+    """Return True if the request is authenticated (or auth is disabled).
+
+    The token may be supplied either as the X-HyprGlass-Token header or as the
+    `token` query parameter (useful for WebSocket upgrades and simple links).
+    """
     if not STUDIO_TOKEN:
         return True
     header = handler.headers.get("X-HyprGlass-Token", "")
+    if hmac.compare_digest(header, STUDIO_TOKEN):
+        return True
+    parsed = urllib.parse.urlparse(handler.path)
+    token = urllib.parse.parse_qs(parsed.query).get("token", [None])[0] or ""
     # Use constant-time comparison to avoid timing side-channels.
-    return hmac.compare_digest(header, STUDIO_TOKEN)
+    return hmac.compare_digest(token, STUDIO_TOKEN)
 
 
 def launch_kitty_preview() -> subprocess.Popen:
@@ -212,10 +222,38 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    @staticmethod
+    def _request_path(request_path: str) -> str:
+        """Return the path component of a request, ignoring any query string."""
+        return urllib.parse.urlparse(request_path).path
+
+    def _serve_index(self) -> None:
+        """Serve index.html with the current token injected for the frontend."""
+        index = ROOT / "index.html"
+        content = index.read_text(encoding="utf-8")
+        if STUDIO_TOKEN and "</head>" in content:
+            meta = (
+                '<meta name="hyprglass-token" '
+                f'content="{html.escape(STUDIO_TOKEN)}">\n'
+            )
+            content = content.replace("</head>", meta + "</head>", 1)
+        data = content.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):  # noqa: N802
-        if self.path == "/api/health":
+        path = self._request_path(self.path)
+        if path in {"/", "/index.html"}:
+            if STUDIO_TOKEN:
+                return self._serve_index()
+            return super().do_GET()
+        if path == "/api/health":
             return json_response(self, {"ok": True, "version": "1.1.0"})
-        if self.path == "/api/config":
+        if path == "/api/config":
             try:
                 if CONFIG_PATH.exists():
                     content = CONFIG_PATH.read_text(encoding="utf-8")
@@ -230,14 +268,18 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):  # noqa: N802
-        if self.path not in {"/api/preview", "/api/apply"}:
+        path = self._request_path(self.path)
+        if path not in {"/api/preview", "/api/apply"}:
             return json_response(
                 self, {"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND
             )
         if not _check_token(self):
             return json_response(
                 self,
-                {"ok": False, "error": "missing or invalid X-HyprGlass-Token header"},
+                {
+                    "ok": False,
+                    "error": "missing or invalid X-HyprGlass-Token header/token",
+                },
                 HTTPStatus.UNAUTHORIZED,
             )
         try:
@@ -247,7 +289,7 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("missing config")
             result = (
                 preview_flow(content)
-                if self.path == "/api/preview"
+                if path == "/api/preview"
                 else apply_flow(content)
             )
             return json_response(self, result)
@@ -265,6 +307,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
+    global STUDIO_TOKEN
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host", type=str, default=os.environ.get("STUDIO_HOST", "127.0.0.1")
@@ -272,7 +315,16 @@ def main() -> None:
     parser.add_argument(
         "--port", type=int, default=int(os.environ.get("STUDIO_PORT", "8765"))
     )
+    parser.add_argument(
+        "--token",
+        type=str,
+        default=os.environ.get("STUDIO_TOKEN", ""),
+        help="Shared secret required by state-changing API endpoints. "
+        "Falls back to the STUDIO_TOKEN environment variable.",
+    )
     args = parser.parse_args()
+
+    STUDIO_TOKEN = (args.token or "").strip()
 
     if args.host not in {"127.0.0.1", "localhost", "::1"}:
         print(
@@ -282,9 +334,9 @@ def main() -> None:
         )
     if not STUDIO_TOKEN:
         print(
-            "WARNING: Studio server running without STUDIO_TOKEN. "
-            "Set the STUDIO_TOKEN environment variable and send it as the "
-            "X-HyprGlass-Token header to protect state-changing endpoints.",
+            "WARNING: Studio server running without --token / STUDIO_TOKEN. "
+            "State-changing endpoints are unprotected. "
+            "Pass --token or set STUDIO_TOKEN to protect /api/preview and /api/apply.",
             file=sys.stderr,
         )
 

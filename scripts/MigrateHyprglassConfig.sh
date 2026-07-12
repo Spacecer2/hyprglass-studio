@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016
 #
 # MigrateHyprglassConfig.sh
 # Detects outdated HyprGlass Studio config formats and migrates them to the

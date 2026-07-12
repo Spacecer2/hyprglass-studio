@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016,SC2001
 # HyprglassProfile.sh - Profile switching for Hyprglass plugin
 # Profiles are .conf files using Hyprland-style $-prefixed variables.
 # Usage: HyprglassProfile.sh {list|apply|current|menu|next|export|import|import-from-url|marketplace|theme|theme-list|theme-current}
@@ -102,6 +103,18 @@ validate_value() {
         fi
     fi
     return 0
+}
+
+# Run hyprctl keyword and warn with a helpful message on failure.
+hyprctl_keyword() {
+    local output rc=0
+    output=$(hyprctl keyword "$@" 2>&1) || rc=$?
+    if (( rc != 0 )); then
+        warn "hyprctl keyword failed for '$*' (exit $rc)"
+        [[ -n "$output" ]] && warn "  $output"
+        warn "Make sure Hyprland is running and the hyprglass plugin is loaded."
+        return 1
+    fi
 }
 
 # Validate a profile file for correct Hyprglass profile syntax.
@@ -219,7 +232,7 @@ apply_rule_overrides() {
                 ;;
         esac
 
-        hyprctl keyword "$hypr_key" "$value" >/dev/null 2>&1 || true
+        hyprctl_keyword "$hypr_key" "$value" || true
         sleep 0.05
     done
 }
@@ -283,7 +296,7 @@ apply_profile() {
 
     local profile_file="$PROFILES_DIR/${profile_name}.conf"
 
-    [[ -f "$profile_file" ]] || die "Profile '$profile_name' not found"
+    [[ -f "$profile_file" ]] || die "Profile '$profile_name' not found in $PROFILES_DIR"$'\n'"Run '$(basename "$0") list' to see available profiles, or '$(basename "$0") import <file>' to add it."
     validate_profile_file "$profile_file"
 
     local name desc
@@ -302,9 +315,9 @@ apply_profile() {
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
         if [[ "$key" == "enabled" ]]; then
-            hyprctl keyword "plugin:hyprglass:enabled" "$value" >/dev/null 2>&1 || true
+            hyprctl_keyword "plugin:hyprglass:enabled" "$value" || true
         else
-            hyprctl keyword "plugin:hyprglass:$key" "$value" >/dev/null 2>&1 || true
+            hyprctl_keyword "plugin:hyprglass:$key" "$value" || true
         fi
         sleep 0.05
     done
@@ -315,7 +328,7 @@ apply_profile() {
         value=$(echo "$line" | sed -E 's/^[^=]+=\s*//' | sed -E 's/[[:space:]]+$//')
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
-        hyprctl keyword "$(theme_key_to_hyprctl "$key")" "$value" >/dev/null 2>&1 || true
+        hyprctl_keyword "$(theme_key_to_hyprctl "$key")" "$value" || true
         sleep 0.05
     done
 
@@ -326,7 +339,7 @@ apply_profile() {
         value=$(echo "$line" | sed -E 's/^[^=]+=\s*//' | sed -E 's/[[:space:]]+$//')
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
-        hyprctl keyword "decoration:$key" "$value" >/dev/null 2>&1 || true
+        hyprctl_keyword "decoration:$key" "$value" || true
         sleep 0.05
     done
 
@@ -365,7 +378,7 @@ apply_profile() {
             # Normalize spacing after commas for the match expression
             local match_formatted
             match_formatted=$(echo "$match" | sed 's/[[:space:]]*,[[:space:]]*/, /g')
-            hyprctl keyword "windowrule" "match:${match_formatted}, tag +${tag}" >/dev/null 2>&1 || true
+            hyprctl_keyword "windowrule" "match:${match_formatted}, tag +${tag}" || true
             sleep 0.05
         fi
     done
@@ -479,6 +492,76 @@ next_profile() {
     apply_profile "${profiles[$idx]}"
 }
 
+export_profile_archive() {
+    local profile_name="$1" output_file="$2"
+
+    validate_profile_name "$profile_name" || die "Invalid profile name: '$profile_name'"
+
+    local profile_file="$PROFILES_DIR/${profile_name}.conf"
+    [[ -f "$profile_file" ]] || die "Profile '$profile_name' not found in $PROFILES_DIR"
+
+    local output_dir
+    output_dir=$(dirname "$output_file")
+    mkdir -p "$output_dir" || die "Cannot create output directory: $output_dir"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    cp "$profile_file" "$tmp_dir/${profile_name}.conf"
+
+    local version
+    version=$(get_var "$profile_file" "version")
+    [[ -n "$version" ]] || version="1.0.0"
+
+    cat > "$tmp_dir/metadata.json" <<EOF
+{
+  "name": "$profile_name",
+  "version": "$version",
+  "exported_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+
+    (cd "$tmp_dir" && tar -czf "$output_file" -- .) || die "Failed to create archive '$output_file'"
+    info "Exported profile '$profile_name' to archive '$output_file'"
+}
+
+import_profile_archive() {
+    local archive_file="$1"
+
+    [[ -f "$archive_file" ]] || die "Archive not found: '$archive_file'"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    if ! tar -xzf "$archive_file" -C "$tmp_dir" --; then
+        die "Failed to extract archive '$archive_file'"
+    fi
+
+    local conf_file
+    conf_file=$(find "$tmp_dir" -maxdepth 1 -type f -name '*.conf' -print -quit)
+    [[ -n "$conf_file" ]] || die "No .conf profile found in archive '$archive_file'"
+
+    local profile_name
+    profile_name=$(get_var "$conf_file" "name")
+    [[ -n "$profile_name" ]] || profile_name=$(basename "$conf_file" .conf)
+    validate_profile_name "$profile_name" || die "Invalid profile name in archive: '$profile_name'"
+
+    local target_file="$PROFILES_DIR/${profile_name}.conf"
+    if [[ -f "$target_file" ]]; then
+        warn "Profile '$profile_name' already exists and will be overwritten"
+    fi
+
+    validate_profile_file "$conf_file"
+
+    ensure_dirs
+    cp "$conf_file" "$target_file" || die "Failed to import profile to '$target_file'"
+    info "Imported profile '$profile_name' from archive '$archive_file' to '$target_file'"
+}
+
 export_profile() {
     local profile_name="$1"
     local output_file="${2:-}"
@@ -486,11 +569,15 @@ export_profile() {
     validate_profile_name "$profile_name" || die "Invalid profile name: '$profile_name'"
 
     local profile_file="$PROFILES_DIR/${profile_name}.conf"
-    [[ -f "$profile_file" ]] || die "Profile '$profile_name' not found"
+    [[ -f "$profile_file" ]] || die "Profile '$profile_name' not found in $PROFILES_DIR"$'\n'"Run '$(basename "$0") list' to see available profiles."
 
     if [[ -n "$output_file" ]]; then
-        cp "$profile_file" "$output_file" || die "Failed to export profile to '$output_file'"
-        info "Exported profile '$profile_name' to '$output_file'"
+        if [[ "$output_file" == *.hyprglass ]]; then
+            export_profile_archive "$profile_name" "$output_file"
+        else
+            cp "$profile_file" "$output_file" || die "Failed to export profile to '$output_file'"
+            info "Exported profile '$profile_name' to '$output_file'"
+        fi
     else
         cat "$profile_file"
     fi
@@ -500,6 +587,11 @@ import_profile() {
     local source_file="$1"
 
     [[ -f "$source_file" ]] || die "File not found: '$source_file'"
+
+    if [[ "$source_file" == *.hyprglass ]]; then
+        import_profile_archive "$source_file"
+        return
+    fi
 
     local profile_name
     profile_name=$(get_var "$source_file" "name")
@@ -685,7 +777,7 @@ apply_theme() {
 
     local theme_file="$THEMES_DIR/${theme_name}.conf"
 
-    [[ -f "$theme_file" ]] || die "Theme '$theme_name' not found"
+    [[ -f "$theme_file" ]] || die "Theme '$theme_name' not found in $THEMES_DIR"$'\n'"Run '$(basename "$0") theme-list' to see available themes."
     validate_profile_file "$theme_file"
 
     local name desc
@@ -697,7 +789,7 @@ apply_theme() {
     info "Description: $desc"
 
     # Set the active theme in the plugin
-    hyprctl keyword "plugin:hyprglass:default_theme" "$name" >/dev/null 2>&1 || true
+    hyprctl_keyword "plugin:hyprglass:default_theme" "$name" || true
     sleep 0.05
 
     # Apply theme settings: $theme.<namespace>.* -> <namespace>:<key>
@@ -707,7 +799,7 @@ apply_theme() {
         value=$(echo "$line" | sed -E 's/^[^=]+=\s*//' | sed -E 's/[[:space:]]+$//')
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
-        hyprctl keyword "$(theme_key_to_hyprctl "$key")" "$value" >/dev/null 2>&1 || true
+        hyprctl_keyword "$(theme_key_to_hyprctl "$key")" "$value" || true
         sleep 0.05
     done
 
@@ -719,9 +811,9 @@ apply_theme() {
         [[ -n "$key" ]] || continue
         validate_value "$value" || continue
         if [[ "$key" == "enabled" ]]; then
-            hyprctl keyword "plugin:hyprglass:enabled" "$value" >/dev/null 2>&1 || true
+            hyprctl_keyword "plugin:hyprglass:enabled" "$value" || true
         else
-            hyprctl keyword "plugin:hyprglass:$key" "$value" >/dev/null 2>&1 || true
+            hyprctl_keyword "plugin:hyprglass:$key" "$value" || true
         fi
         sleep 0.05
     done
@@ -737,7 +829,7 @@ apply_theme() {
 }
 
 usage() {
-    echo "Usage: $(basename "$0") {list|apply <profile>|current|menu|next|export <profile> [file]|import <file>|import-from-url <url>|marketplace list|marketplace install <name>|theme <name>|theme-list|theme-current}"
+    echo "Usage: $(basename "$0") {list|apply <profile>|current|menu|next|export <profile> [file]|import <file>|--export <profile> [file]|--import <file>|-e <profile> [file]|-i <file>|import-from-url <url>|marketplace list|marketplace install <name>|theme <name>|theme-list|theme-current}"
     echo ""
     echo "Commands:"
     echo "  list                          List available profiles"
@@ -746,8 +838,14 @@ usage() {
     echo "  menu                          Show rofi menu"
     echo "  next                          Cycle to next profile"
     echo "  export <profile> [file]       Export a profile to stdout or file"
+    echo "  --export|-e <profile> [file]  Alias for export"
     echo "  import <file>                 Import a profile into $PROFILES_DIR"
+    echo "  --import|-i <file>            Alias for import"
     echo "  import-from-url <url>         Download and import a profile"
+    echo ""
+    echo "Archive format:"
+    echo "  Use a file ending in .hyprglass with export/import to create or read a"
+    echo "  portable tar.gz archive containing the profile and metadata.json."
     echo "  marketplace list              List bundled community marketplace profiles"
     echo "  marketplace install <name>    Install a community profile into $PROFILES_DIR"
     echo "  theme <name>                  Apply a theme preset"
@@ -778,11 +876,11 @@ main() {
         next)
             next_profile
             ;;
-        export)
+        export|--export|-e)
             [[ -n "${2:-}" ]] || die "Profile name required"
             export_profile "$2" "${3:-}"
             ;;
-        import)
+        import|--import|-i)
             [[ -n "${2:-}" ]] || die "File path required"
             import_profile "$2"
             ;;
@@ -822,4 +920,7 @@ main() {
     esac
 }
 
-main "$@"
+# Only run main when the script is executed directly; allow sourcing for tests.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

@@ -66,6 +66,8 @@ def test_validator_accepts_valid_configs(fixture_name):
         ("invalid_missing_required.conf", "missing required field: default_preset"),
         ("invalid_numeric.conf", "blur_strength must be between"),
         ("invalid_decoration.conf", "decoration.active_opacity must be between"),
+        ("invalid_windowrule_order.conf", "window rule missing 'match:' prefix"),
+        ("invalid_theme_outside_block.conf", "theme key found outside plugin:hyprglass block"),
     ],
 )
 def test_validator_rejects_invalid_configs(fixture_name, expected_error):
@@ -73,6 +75,13 @@ def test_validator_rejects_invalid_configs(fixture_name, expected_error):
     rc, _, stderr = run_validator(conf)
     assert rc == 1, f"expected invalid config to fail: {fixture_name}"
     assert expected_error in stderr
+
+
+def test_validator_warns_on_legacy_windowrulev2():
+    conf = FIXTURES / "valid_legacy_windowrule.conf"
+    rc, _, stderr = run_validator(conf)
+    assert rc == 0, f"expected legacy windowrulev2 to warn but pass; stderr: {stderr}"
+    assert "windowrulev2 is deprecated" in stderr
 
 
 def test_validator_reports_all_missing_required_fields():

@@ -81,7 +81,30 @@ $window_rules.fallback.reason = All other windows use the profile defaults
 | `$decoration.*` | `decoration:*` | `$decoration.active_opacity` → `decoration:active_opacity` |
 | `$window_rules.<name>.*` | `windowrulev2` tags | See [Window Rules](#window-rules) below |
 
-## Switching Profiles
+## Importing and Exporting Profiles
+
+Profiles can be moved between machines or shared with the community using the
+profile switcher.
+
+```bash
+# Export a profile to a plain .conf file
+~/.config/hypr/scripts/HyprglassProfile.sh export default ~/default.conf
+# Or use the long-option alias
+~/.config/hypr/scripts/HyprglassProfile.sh --export default ~/default.conf
+
+# Export a profile to a portable .hyprglass archive
+~/.config/hypr/scripts/HyprglassProfile.sh --export default ~/default.hyprglass
+
+# Import a profile (raw .conf or .hyprglass archive)
+~/.config/hypr/scripts/HyprglassProfile.sh import ~/default.conf
+~/.config/hypr/scripts/HyprglassProfile.sh --import ~/default.hyprglass
+```
+
+A `.hyprglass` archive is a gzip-compressed tar file that contains the profile
+`.conf` and a `metadata.json` file. It is the format used by the roadmap's
+planned profile sharing feature.
+
+# Switching Profiles
 
 ### Keybinds
 

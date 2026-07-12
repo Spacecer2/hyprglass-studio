@@ -3,7 +3,7 @@
 # HyprGlass Studio Installer
 # Production-ready setup for HyprGlass Studio on Hyprland.
 #
-# shellcheck disable=SC2317,SC2181
+# shellcheck disable=SC2317,SC2181,SC2016
 
 set -euo pipefail
 
@@ -625,7 +625,7 @@ decoration {
   fullscreen_opacity = 1
 }
 
-# Compatibility opacity overrides so the effect is visible on opaque apps
+# Per-window glass overrides
 windowrule = match:class ^(waterfox)$, tag +browser
 windowrule = match:class ^(waterfox)$, tag +hyprglass_enabled
 windowrule = match:class ^(waterfox)$, tag +hyprglass_preset_glass
@@ -633,41 +633,70 @@ windowrule = match:class ^(waterfox)$, opacity 0.75 0.65
 EOF
 
     chmod 644 "$tmp_conf"
-    mv -f "$tmp_conf" "$HYPGLASS_CONF_DEST"
-    trap - RETURN
 
-    if ! $FORCE; then
-        local validation_failed=false
-        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$HYPGLASS_CONF_DEST"; then
+    # Validate the generated temp file BEFORE moving it into place.
+    local validation_failed=false
+    local validator="${SCRIPT_DIR}/scripts/ValidateHyprglassConf.sh"
+    if [[ -x "$validator" ]]; then
+        if ! bash "$validator" "$tmp_conf" >/dev/null 2>&1; then
+            err "Validation failed: ${validator} rejected the generated config"
+            bash "$validator" "$tmp_conf" >&2 || true
+            validation_failed=true
+        fi
+    else
+        warn "External validator not found, using inline validation"
+        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$tmp_conf"; then
             err "Validation failed: blur_strength is not 3.4"
             validation_failed=true
         fi
-        if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$HYPGLASS_CONF_DEST"; then
-            err "Validation failed: found legacy windowrule v2 syntax (use match: instead)"
+        if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$tmp_conf"; then
+            err "Validation failed: found legacy windowrulev2 syntax"
             validation_failed=true
         fi
-        if grep -E '^[[:space:]]*windowrule' "$HYPGLASS_CONF_DEST" | grep -qvE 'match:class[[:space:]]+\^\(.*\)\$'; then
-            err "Validation failed: found windowrule line not using match:class ^(...)$ syntax"
-            validation_failed=true
-        fi
-        if grep -qE 'layer:surface' "$HYPGLASS_CONF_DEST"; then
+        local wr_line
+        while IFS= read -r wr_line; do
+            wr_line="${wr_line%%#*}"
+            [[ -z "${wr_line// }" ]] && continue
+            if ! [[ "$wr_line" =~ ^[[:space:]]*windowrule[[:space:]]*=[[:space:]]*([^,]+),[[:space:]]*(.+)$ ]]; then
+                err "Validation failed: windowrule not in MATCH, RULE order: $wr_line"
+                validation_failed=true
+            else
+                local match_spec="${BASH_REMATCH[1]}"
+                match_spec="${match_spec% }"
+                if [[ "$match_spec" != match:* ]]; then
+                    err "Validation failed: windowrule MATCH must begin with 'match:': $wr_line"
+                    validation_failed=true
+                fi
+            fi
+        done < <(grep -E '^[[:space:]]*windowrule[[:space:]]*=' "$tmp_conf" || true)
+        if grep -qE 'layer:surface' "$tmp_conf"; then
             err "Validation failed: found layer:surface values (use waybar, swaync, etc.)"
             validation_failed=true
         fi
-        if ! grep -qE '^[[:space:]]*layers:namespaces[[:space:]]*=[[:space:]]*.*(waybar|swaync)' "$HYPGLASS_CONF_DEST"; then
+        if ! grep -qE '^[[:space:]]*layers:namespaces[[:space:]]*=[[:space:]]*.*(waybar|swaync)' "$tmp_conf"; then
             err "Validation failed: layers:namespaces missing waybar/swaync values"
             validation_failed=true
         fi
-        if awk '/^plugin:hyprglass \{/{in_plugin=1} /^\}/{if(in_plugin) in_plugin=0} !in_plugin && /^[[:space:]]*(dark|light):/{print}' "$HYPGLASS_CONF_DEST" | grep -q .; then
-            err "Validation failed: dark/light theme values found outside plugin:hyprglass block"
+        if awk '/^plugin:hyprglass \{/{in_plugin=1} /^\}/{if(in_plugin) in_plugin=0} !in_plugin && /^[[:space:]]*(dark|light|layers):/{print}' "$tmp_conf" | grep -q .; then
+            err "Validation failed: theme/layers values found outside plugin:hyprglass block"
             validation_failed=true
         fi
-
-        if $validation_failed; then
-            rm -f "$HYPGLASS_CONF_DEST"
-            fatal "Generated Hyprglass.conf failed validation. Use --force to bypass."
-        fi
     fi
+
+    if $validation_failed; then
+        rm -f "$tmp_conf"
+        fatal "Generated Hyprglass.conf failed validation. Use --force to bypass."
+    fi
+
+    # Back up the existing config before overwriting it.
+    if [[ -f "$HYPGLASS_CONF_DEST" ]]; then
+        mkdir -p "$BACKUP_DIR"
+        cp -a "$HYPGLASS_CONF_DEST" "${BACKUP_DIR}/Hyprglass.conf"
+        log "Backed up existing Hyprglass.conf to ${BACKUP_DIR}/Hyprglass.conf"
+    fi
+
+    mv -f "$tmp_conf" "$HYPGLASS_CONF_DEST"
+    trap - RETURN
 
     ok "Generated ${HYPGLASS_CONF_DEST}"
 }

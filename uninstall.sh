@@ -175,30 +175,30 @@ create_restore_point() {
 
     if [[ -f "${HYPRLAND_CONF}" ]]; then
         cp "${HYPRLAND_CONF}" "${restore_dir}/hyprland.conf"
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${HYPR_DIR}/UserConfigs" ]]; then
         mkdir -p "${restore_dir}/UserConfigs"
         cp -r "${HYPR_DIR}/UserConfigs/"*.conf "${restore_dir}/UserConfigs/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${HYPR_DIR}/scripts" ]]; then
         mkdir -p "${restore_dir}/scripts"
         cp -r "${HYPR_DIR}/scripts/"*.sh "${restore_dir}/scripts/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${WALLUST_DIR}/templates" ]]; then
         mkdir -p "${restore_dir}/wallust-templates"
         cp -r "${WALLUST_DIR}/templates/"* "${restore_dir}/wallust-templates/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -f "${HYPR_DIR}/UserConfigs/Startup_Apps.conf" ]]; then
         cp "${HYPR_DIR}/UserConfigs/Startup_Apps.conf" "${restore_dir}/Startup_Apps.conf" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if (( saved > 0 )); then

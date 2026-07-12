@@ -18,6 +18,12 @@ const STORAGE_KEY = 'hyprglass-studio.state.v1';
 const app = document.getElementById('app');
 const loadErrorBanner = document.getElementById('load-error');
 
+const urlParams = new URLSearchParams(window.location.search);
+const studioToken =
+  document.querySelector('meta[name="hyprglass-token"]')?.content ||
+  urlParams.get('token') ||
+  '';
+
 const caughtErrors = [];
 let syntaxStatus = { ok: null, message: '' };
 
@@ -236,11 +242,16 @@ async function sendConfig(kind) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (studioToken) {
+    headers['X-HyprGlass-Token'] = studioToken;
+  }
+
   let response;
   try {
     response = await fetch(`/api/${kind}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ config: liveConfigText() }),
       signal: controller.signal,
     });
