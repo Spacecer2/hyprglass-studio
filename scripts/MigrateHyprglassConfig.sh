@@ -15,7 +15,6 @@
 set -euo pipefail
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HYPR_DIR="${HOME}/.config/hypr"
 USER_CONFIGS_DIR="${HYPR_DIR}/UserConfigs"
 PROFILES_DIR="${HYPR_DIR}/hyprglass-profiles"
@@ -39,7 +38,6 @@ MIGRATION_NEEDED=false
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 BOLD='\033[1m'
@@ -105,7 +103,10 @@ parse_args() {
     HYPGLASS_CONF_DEST="${USER_CONFIGS_DIR}/${HYPGLASS_CONF_NAME}"
 
     # Prevent path traversal: the migration tool must only touch paths under HOME.
-    if [[ "$HYPR_DIR" != "$HOME"* ]]; then
+    local home_trailing
+    home_trailing="$HOME"
+    [[ "$home_trailing" != / ]] && home_trailing="${home_trailing%/}/"
+    if [[ "$HYPR_DIR" != "$HOME" && "$HYPR_DIR" != "$home_trailing"* ]]; then
         fatal "--config-dir must be under \$HOME (refusing to migrate: $HYPR_DIR)"
     fi
 }
@@ -174,7 +175,8 @@ confirm() {
 migrate_main_config() {
     local src="$1"
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "$(dirname "$src")")
+    chmod 600 "$tmp"
     local changed=false
 
     verb "Analyzing ${src}"
@@ -197,9 +199,9 @@ migrate_main_config() {
         changed=true
     fi
 
-    # Detection: old window rule syntax
-    if grep -qE '^\s*windowrule\s*=\s*match:' "$src" 2>/dev/null; then
-        report_change "$src" "old windowrule match: syntax"
+    # Detection: legacy windowrulev2 syntax (current format uses windowrule = match:)
+    if grep -qE '^\s*windowrulev2\s*=' "$src" 2>/dev/null; then
+        report_change "$src" "windowrulev2 syntax (use match: instead)"
         changed=true
     fi
 
@@ -350,25 +352,22 @@ theme_final = {t: merge(theme_defaults[t], theme_values[t]) for t in theme_defau
 layers_final = merge(layers_defaults, layers_values)
 decoration_final = merge(decoration_defaults, decoration_values)
 
-# Window rules: convert old 'windowrule = match:..., action' to current v2 tags
+# Window rules: keep current 'windowrule = match:..., action' syntax and migrate
+# legacy 'windowrulev2 = action, condition' lines to it.
 window_rules = []
 for line in text.splitlines():
-    m = re.match(r"^\s*windowrule\s*=\s*match:\s*(.+?)\s*,\s*(.+?)\s*$", line)
-    if m:
-        match_expr, action = m.group(1), m.group(2)
-        # Best-effort conversion: if action looks like an opacity value, turn it
-        # into a tag + opacity windowrulev2.
-        if re.match(r"^opacity\s+", action):
-            nums = re.findall(r"[0-9.]+", action)
-            if len(nums) >= 2:
-                active, inactive = nums[0], nums[1]
-                window_rules.append(f"windowrulev2 = opacity {active} {inactive}, {match_expr}")
-            else:
-                window_rules.append(f"windowrulev2 = tag +hyprglass_enabled, {match_expr}")
-        else:
-            window_rules.append(f"windowrulev2 = tag +hyprglass_enabled, {match_expr}")
-    elif re.match(r"^\s*windowrulev2\s*=", line):
+    if re.match(r"^\s*windowrule\s*=\s*match:", line):
+        # Already in current format; preserve as-is.
         window_rules.append(line.strip())
+    else:
+        m = re.match(r"^\s*windowrulev2\s*=\s*(.+?)\s*,\s*(.+?)\s*$", line)
+        if m:
+            action, match_expr = m.group(1), m.group(2)
+            # Normalize Hyprland v2 condition syntax to project match syntax:
+            # class:^(foo)$ -> class ^(foo)$ ; tag:foo -> tag foo
+            match_expr = re.sub(r'\bclass:\s*', 'class ', match_expr)
+            match_expr = re.sub(r'\btag:\s*', 'tag ', match_expr)
+            window_rules.append(f"windowrule = match:{match_expr}, {action}")
 
 # Build output in current documented format
 out = []
@@ -402,9 +401,9 @@ out.append("# ─── Window Rules ──────────────�
 if window_rules:
     out.extend(window_rules)
 else:
-    out.append("windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$")
-    out.append("windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$")
-    out.append("windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$")
+    out.append("windowrule = match:class ^(firefox)$, tag +hyprglass_disabled")
+    out.append("windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle")
+    out.append("windowrule = match:class ^(thunar)$, tag +hyprglass_enabled")
 out.append("")
 out.append("# ─── Wallust Color Sync (optional) ──────────────────────────────────────")
 out.append("# If wallust is installed, these variables are updated by the wallust hook.")
@@ -429,7 +428,8 @@ migrate_profile() {
     local name
     name=$(basename "$src" .conf)
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "$(dirname "$src")")
+    chmod 600 "$tmp"
     local changed=false
 
     verb "Analyzing profile ${src}"

@@ -10,8 +10,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import pytest
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GUARD_SCRIPT = PROJECT_ROOT / "scripts" / "HyprglassGuard.sh"
 VALIDATOR = PROJECT_ROOT / "scripts" / "ValidateHyprglassConf.sh"

@@ -55,7 +55,8 @@ hyprctl keyword plugin:hyprglass:dark:brightness "$brightness_setting" 2>/dev/nu
 # Save values to cache
 CACHE_DIR="$HOME/.cache"
 mkdir -p "$CACHE_DIR"
-cat > "$CACHE_DIR/.hyprglass_wallust.json" << EOF
+CACHE_FILE="$CACHE_DIR/.hyprglass_wallust.json"
+cat > "$CACHE_FILE" << EOF
 {
   "tint_color": "$tint_color",
   "brightness": "$brightness_setting",
@@ -64,6 +65,7 @@ cat > "$CACHE_DIR/.hyprglass_wallust.json" << EOF
   "background": "$background"
 }
 EOF
+chmod 600 "$CACHE_FILE"
 
 # Send notification
 notify-send "HyprGlass colors updated from wallpaper"

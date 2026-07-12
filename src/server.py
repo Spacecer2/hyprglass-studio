@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import os
 import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 from datetime import datetime
@@ -22,6 +24,11 @@ BACKUP_DIR = HOME / ".config/hypr/backups/hyprglass-studio"
 PREVIEW_DIR = Path("/tmp/hyprglass-studio")
 VALIDATOR = ROOT.parent / "scripts" / "ValidateHyprglassConf.sh"
 MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MiB
+
+# Studio API authentication. Set STUDIO_TOKEN to require the same value in the
+# X-HyprGlass-Token header for state-changing endpoints. This prevents other
+# local users from modifying the Hyprland config via the localhost-only API.
+STUDIO_TOKEN = os.environ.get("STUDIO_TOKEN", "").strip()
 
 lock = threading.Lock()
 active_preview: dict[str, object] | None = None
@@ -116,6 +123,15 @@ def reload_hyprland() -> None:
     subprocess.run(["hyprctl", "reload"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def _check_token(handler: SimpleHTTPRequestHandler) -> bool:
+    """Return True if the request is authenticated (or auth is disabled)."""
+    if not STUDIO_TOKEN:
+        return True
+    header = handler.headers.get("X-HyprGlass-Token", "")
+    # Use constant-time comparison to avoid timing side-channels.
+    return hmac.compare_digest(header, STUDIO_TOKEN)
+
+
 def launch_kitty_preview() -> subprocess.Popen:
     config_path_quoted = shlex.quote(str(CONFIG_PATH))
     message = (
@@ -205,6 +221,12 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if self.path not in {"/api/preview", "/api/apply"}:
             return json_response(self, {"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+        if not _check_token(self):
+            return json_response(
+                self,
+                {"ok": False, "error": "missing or invalid X-HyprGlass-Token header"},
+                HTTPStatus.UNAUTHORIZED,
+            )
         try:
             data = read_json(self)
             content = data.get("config", "")
@@ -226,7 +248,17 @@ def main() -> None:
     parser.add_argument("--host", type=str, default=os.environ.get("STUDIO_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("STUDIO_PORT", "8765")))
     args = parser.parse_args()
+
+    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+        print(f"WARNING: Studio server binding to non-loopback address {args.host}. "
+              "Other machines may be able to reach this endpoint.", file=sys.stderr)
+    if not STUDIO_TOKEN:
+        print("WARNING: Studio server running without STUDIO_TOKEN. "
+              "Set the STUDIO_TOKEN environment variable and send it as the "
+              "X-HyprGlass-Token header to protect state-changing endpoints.", file=sys.stderr)
+
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    os.chmod(PREVIEW_DIR, 0o700)
     os.chdir(ROOT)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     try:

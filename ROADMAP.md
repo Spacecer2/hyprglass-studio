@@ -86,7 +86,7 @@ Hyprglass Studio aims to be the definitive open-source environment for designing
 
 We welcome community input on where Hyprglass Studio should go next. Here's how you can contribute:
 
-1. **Propose new ideas:** Open a [GitHub Discussion](https://github.com/neo773/hyprglass-studio/discussions) with the `roadmap` tag and describe the feature, the problem it solves, and who would benefit.
+1. **Propose new ideas:** Open a [GitHub Discussion](https://github.com/Spacecer2/hyprglass-studio/discussions) with the `roadmap` tag and describe the feature, the problem it solves, and who would benefit.
 2. **Vote on existing items:** React to roadmap issues and discussions to help us prioritize what the community cares about most.
 3. **Pick up planned work:** Check issues labeled `roadmap` and `help wanted`. Comment on the issue to let maintainers know you're working on it.
 4. **Report blockers:** If an in-progress item is stuck due to a technical or dependency issue, open an issue with the `roadmap-blocker` label.

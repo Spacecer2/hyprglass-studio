@@ -251,7 +251,8 @@ cleanup_hyprland_conf() {
     fi
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
 
     awk -v src="${HYPGLASS_SRC}" -v exec="${HYPGLASS_EXEC}" '
         BEGIN { skip = 0 }
@@ -362,7 +363,8 @@ cleanup_jakoolit_startup() {
     fi
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
     grep -vF "FixHyprglassValues.sh" "$startup_conf" | \
     grep -vF "WallustHyprglassHook.sh" | \
     grep -vF "# HyprGlass Studio" > "$tmp" || true
@@ -439,9 +441,9 @@ cleanup_old_backups() {
     fi
 
     local backup_dir="${HYPR_DIR}/backups"
-    if [[ -d "$backup_dir" ]] && confirm "Remove old installer backups in ${backup_dir}?"; then
-        run_cmd rm -rf "$backup_dir"
-        success "Removed ${backup_dir}"
+    if [[ -d "$backup_dir" ]] && confirm "Remove old HyprGlass installer backups in ${backup_dir}?"; then
+        run_cmd rm -rf "${backup_dir}"/hyprglass-studio-*
+        success "Removed HyprGlass installer backups from ${backup_dir}"
     else
         info "Keeping backup directory"
     fi

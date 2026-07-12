@@ -46,7 +46,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features, milestones, and current statu
 
 ## Version Planning
 
-Release goals and version targets are tracked in [ROADMAP.md](ROADMAP.md#version-planning).
+Release goals and version targets are tracked in [docs/VERSION-PLANNING.md](docs/VERSION-PLANNING.md).
 
 ---
 
@@ -198,12 +198,15 @@ From the repository directly:
 
 ```bash
 cd ~/hyprglass-studio
+export STUDIO_TOKEN="$(openssl rand -hex 32)"
 python3 -m src.server --port 8765
 ```
 
 **2. Open your browser**
 
 Navigate to `http://localhost:8765` to tune blur, opacity, tint, layer surfaces, and window rules in real time.
+
+> **Security note:** Set `STUDIO_TOKEN` when running the Studio server on a multi-user system. State-changing API endpoints require the same token in the `X-HyprGlass-Token` header. See [SECURITY.md](SECURITY.md) for details.
 
 **3. Try a profile**
 

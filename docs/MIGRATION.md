@@ -59,7 +59,7 @@ The migration tool recognizes the following legacy patterns.
 | No `plugin:hyprglass { ... }` block | Add block with all current keys |
 | Theme overrides inside `plugin:hyprglass` block | Move `dark:*` and `light:*` to top level |
 | Missing `layers:*` settings | Add default layer namespace rules |
-| `windowrule = match:..., action` | Convert to `windowrulev2 = tag +hyprglass_*, ...` or `windowrulev2 = opacity ...` |
+| `windowrulev2 = ..., class:^(...)$` | Convert to `windowrule = match:class ^(...)$, ...` |
 
 ### Profile configs
 

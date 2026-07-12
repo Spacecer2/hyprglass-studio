@@ -46,7 +46,8 @@ GAMING_PROFILE="${HG_GPU_GAMING_PROFILE:-gaming}"
 # Helpers
 # ---------------------------------------------------------------------------
 log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    local msg
+    msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     mkdir -p "${LOG_DIR}"
     printf '%s\n' "$msg" >> "${LOG_FILE}"
 }

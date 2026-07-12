@@ -99,7 +99,7 @@ check_gpu_throttle() {
         # Capture all output first to avoid SIGPIPE from head closing the pipe.
         local nvidia_out
         nvidia_out=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || true)
-        pct=$(echo "$nvidia_out" | head -1 | tr -d '[:space:]')
+        pct=$(printf '%s\n' "$nvidia_out" | head -1 | tr -d '[:space:]')
     fi
 
     # Fallback: try to find a GPU hwmon load attribute

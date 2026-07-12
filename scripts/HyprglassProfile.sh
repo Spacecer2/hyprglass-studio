@@ -58,7 +58,7 @@ get_var() {
     # Escape regex metacharacters in the variable name (e.g. dots).
     local escaped_name
     escaped_name=$(printf '%s' "$name" | sed 's/[.\\[*^$+?{|]/\\&/g')
-    grep -E "^\\\$${escaped_name}\s*=" "$file" 2>/dev/null | head -1 | sed -E 's/^[^=]+=\s*//' | sed -E 's/\s*$//'
+    grep -E "^\\\$${escaped_name}\s*=" "$file" 2>/dev/null | head -1 | sed -E 's/^[^=]+=\s*//' | sed -E 's/\s*$//' || true
 }
 
 # Get the base name of a profile file without extension.
@@ -81,13 +81,25 @@ validate_profile_name() {
 }
 
 # Reject values that contain shell/control characters. Values are passed as
-# quoted arguments to hyprctl, so Hyprland regex metacharacters ($, (), [],
-# {}, ^, +, ?) are intentionally allowed.
+# quoted arguments to hyprctl, so Hyprland regex metacharacters are allowed.
+# Use context="match" for window-rule match patterns, where the regex alternation
+# operator "|" is required (e.g. class ^(mpv|vlc|celluloid)$).
 validate_value() {
     local value="$1"
-    if [[ "$value" =~ [$'\n\r`\\|;&<>'] ]]; then
-        warn "Skipping unsafe value: ${value:0:40}"
-        return 1
+    local context="${2:-simple}"
+    if [[ "$context" == "match" ]]; then
+        # Match patterns need regex metacharacters like |, $, ^, (), [], ., *, +, ?, \.
+        # Reject shell/control metacharacters only.
+        if [[ "$value" =~ [$'\n\r`\\;&<>'] ]]; then
+            warn "Skipping unsafe value: ${value:0:40}"
+            return 1
+        fi
+    else
+        # Simple values must not include the shell command separator/pipe "|" either.
+        if [[ "$value" =~ [$'\n\r`\\|;&<>'] ]]; then
+            warn "Skipping unsafe value: ${value:0:40}"
+            return 1
+        fi
     fi
     return 0
 }
@@ -136,16 +148,19 @@ validate_profile_file() {
             continue
         fi
 
-        # Reject unsafe values.
-        local value
+        # Validate known numeric ranges.
+        local key value validate_context="simple"
+        key=$(echo "$line" | sed -E 's/^\$([a-zA-Z0-9_.-]+)[[:space:]]*=.*/\1/')
         value=$(echo "$line" | sed -E 's/^[^=]+=[[:space:]]*//;s/[[:space:]]*$//')
-        if ! validate_value "$value"; then
+
+        # Reject unsafe values. Window-rule match patterns may contain regex
+        # metacharacters such as "|" (alternation) that are forbidden elsewhere.
+        if [[ "$key" == window_rules.*.match ]]; then
+            validate_context="match"
+        fi
+        if ! validate_value "$value" "$validate_context"; then
             errors=$((errors + 1))
         fi
-
-        # Validate known numeric ranges.
-        local key
-        key=$(echo "$line" | sed -E 's/^\$([a-zA-Z0-9_.-]+)[[:space:]]*=.*/\1/')
         if [[ -n "${ranges[$key]:-}" ]]; then
             local lo hi
             read -r lo hi <<< "${ranges[$key]}"
@@ -262,6 +277,8 @@ list_profiles() {
 apply_profile() {
     local profile_name="$1"
 
+    ensure_dirs
+
     validate_profile_name "$profile_name" || die "Invalid profile name: '$profile_name'"
 
     local profile_file="$PROFILES_DIR/${profile_name}.conf"
@@ -313,7 +330,7 @@ apply_profile() {
         sleep 0.05
     done
 
-    # Apply window rules: $window_rules.<name>.* -> windowrulev2
+    # Apply window rules: $window_rules.<name>.* -> windowrule = match:..., tag +...
     # Build rules by collecting lines that share the same rule prefix.
     local rule_names=()
     declare -A rule_names_seen
@@ -334,7 +351,7 @@ apply_profile() {
         match=$(get_var "$profile_file" "window_rules.${rule_name}.match")
         [[ -n "$action" ]] || continue
         validate_value "$action" || continue
-        validate_value "$match" || continue
+        validate_value "$match" match || continue
 
         case "$action" in
             disable) tag="hyprglass_disabled" ;;
@@ -345,10 +362,10 @@ apply_profile() {
         esac
 
         if [[ -n "$match" ]]; then
-            # Replace commas with ', ' for Hyprland windowrulev2 syntax
+            # Normalize spacing after commas for the match expression
             local match_formatted
-            match_formatted=$(echo "$match" | sed 's/,/, /g')
-            hyprctl keyword "windowrulev2" "tag +${tag}, ${match_formatted}" >/dev/null 2>&1 || true
+            match_formatted=$(echo "$match" | sed 's/[[:space:]]*,[[:space:]]*/, /g')
+            hyprctl keyword "windowrule" "match:${match_formatted}, tag +${tag}" >/dev/null 2>&1 || true
             sleep 0.05
         fi
     done
@@ -512,8 +529,10 @@ import_from_url() {
         die "Only HTTPS URLs are allowed for profile imports"
     fi
 
+    ensure_dirs
     local tmp_file
-    tmp_file=$(mktemp --suffix=.conf) || die "Failed to create temporary file"
+    tmp_file=$(mktemp -p "$PROFILES_DIR" --suffix=.conf) || die "Failed to create temporary file"
+    chmod 600 "$tmp_file"
     trap 'rm -f "${tmp_file:-}"' EXIT
 
     info "Downloading profile from $url..."
@@ -659,6 +678,8 @@ show_current_theme() {
 
 apply_theme() {
     local theme_name="$1"
+
+    ensure_dirs
 
     validate_profile_name "$theme_name" || die "Invalid theme name: '$theme_name'"
 

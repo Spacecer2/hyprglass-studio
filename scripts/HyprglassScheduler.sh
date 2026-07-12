@@ -43,7 +43,8 @@ LAST_PROFILE_FILE="${CACHE_HOME}/.hyprglass_scheduler_profile"
 # Helpers
 # ---------------------------------------------------------------------------
 log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    local msg
+    msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     mkdir -p "$(dirname "${LOG_FILE}")"
     printf '%s\n' "$msg" >> "${LOG_FILE}"
 }
@@ -203,14 +204,14 @@ apply_profile() {
 # Modes
 # ---------------------------------------------------------------------------
 run_one_shot() {
-    local now target parse_err
+    local now target
 
     if [[ ! -f "$SCHEDULE_FILE" ]]; then
         log "Schedule file not found: $SCHEDULE_FILE"
         return 1
     fi
 
-    if ! parse_err=$(parse_schedule >/dev/null 2>&1); then
+    if ! parse_schedule >/dev/null 2>&1; then
         log "Failed to parse schedule file: $SCHEDULE_FILE"
         return 1
     fi

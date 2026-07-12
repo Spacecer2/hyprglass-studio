@@ -14,6 +14,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src import server as app_module  # noqa: E402
 
+TEST_TOKEN = "test-studio-token"
+
 
 def find_free_port() -> int:
     """Return a free TCP port on localhost."""
@@ -34,6 +36,8 @@ def server_url(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "CONFIG_PATH", tmp_path / "Hyprglass.conf")
     monkeypatch.setattr(app_module, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(app_module, "PREVIEW_DIR", tmp_path / "preview")
+    # Enable token auth for state-changing endpoints.
+    monkeypatch.setattr(app_module, "STUDIO_TOKEN", TEST_TOKEN)
 
     # Avoid calling out to Hyprland/kitty during tests.
     monkeypatch.setattr(app_module, "reload_hyprland", lambda: None)
@@ -48,6 +52,19 @@ def server_url(tmp_path, monkeypatch):
     server.shutdown()
     server.server_close()
     thread.join(timeout=2)
+
+
+def _api_request(url: str, data: bytes, token: str | None = TEST_TOKEN) -> urllib.request.Request:
+    """Build a POST request with the optional auth token."""
+    headers = {"Content-Type": "application/json"}
+    if token is not None:
+        headers["X-HyprGlass-Token"] = token
+    return urllib.request.Request(
+        url,
+        data=data,
+        headers=headers,
+        method="POST",
+    )
 
 
 def test_root_endpoint(server_url):
@@ -102,11 +119,9 @@ def test_apply_valid_config(server_url, tmp_path, monkeypatch):
     config_path = tmp_path / "Hyprglass.conf"
     monkeypatch.setattr(app_module, "CONFIG_PATH", config_path)
 
-    request = urllib.request.Request(
+    request = _api_request(
         f"{server_url}/api/apply",
         data=json.dumps({"config": VALID_CONFIG}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
     response = urllib.request.urlopen(request, timeout=5)
     assert response.status == 200
@@ -117,11 +132,9 @@ def test_apply_valid_config(server_url, tmp_path, monkeypatch):
 
 
 def test_apply_invalid_config(server_url):
-    request = urllib.request.Request(
+    request = _api_request(
         f"{server_url}/api/apply",
         data=json.dumps({"config": "not a valid config"}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
     with pytest.raises(urllib.error.HTTPError) as exc_info:
         urllib.request.urlopen(request, timeout=5)
@@ -131,16 +144,28 @@ def test_apply_invalid_config(server_url):
     assert "invalid config" in body.get("error", "")
 
 
+def test_apply_without_token_is_rejected(server_url):
+    request = _api_request(
+        f"{server_url}/api/apply",
+        data=json.dumps({"config": VALID_CONFIG}).encode("utf-8"),
+        token=None,
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(request, timeout=5)
+    assert exc_info.value.code == 401
+    body = json.loads(exc_info.value.read().decode("utf-8"))
+    assert body.get("ok") is False
+    assert "X-HyprGlass-Token" in body.get("error", "")
+
+
 def test_preview_endpoint(server_url, tmp_path, monkeypatch):
     config_path = tmp_path / "Hyprglass.conf"
     monkeypatch.setattr(app_module, "CONFIG_PATH", config_path)
     monkeypatch.setattr(app_module, "launch_kitty_preview", FakePreviewProcess)
 
-    request = urllib.request.Request(
+    request = _api_request(
         f"{server_url}/api/preview",
         data=json.dumps({"config": VALID_CONFIG}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
     response = urllib.request.urlopen(request, timeout=5)
     assert response.status == 200
