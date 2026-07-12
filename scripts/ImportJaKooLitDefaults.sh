@@ -21,7 +21,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROFILES_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprglass-profiles"
 PROFILE_SWITCHER="${SCRIPT_DIR}/HyprglassProfile.sh"
 
-DEFAULT_INPUT="${HOME}/.config/hypr/UserConfigs/UserDecorations.conf"
 FALLBACK_INPUTS=(
     "$DEFAULT_INPUT"
     "${HOME}/.config/hyprland/UserConfigs/UserDecorations.conf"
