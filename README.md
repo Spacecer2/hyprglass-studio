@@ -70,20 +70,6 @@ Release goals and version targets are tracked in [docs/VERSION-PLANNING.md](docs
 
 ---
 
-## Security Features
-
-HyprGlass Studio is designed with security in mind. See [SECURITY.md](SECURITY.md) for the full security policy and vulnerability reporting process.
-
-- **Non-root installer** — The installer refuses to run as root or via `sudo` unless explicitly allowed with `--allow-root`, preventing accidental system-wide modifications.
-- **Path validation** — All target paths are verified to live under `$HOME` before any file operation.
-- **Input validation** — User inputs, plugin parameters, and external data are type-checked, sanitized, and validated.
-- **Atomic backups** — Existing configs are backed up with timestamps before modification so you can roll back safely.
-- **No hardcoded secrets** — The codebase is scanned for credentials, API keys, and tokens; secrets are provided via environment variables or secure config files.
-- **Sandboxed plugins** — Plugins run with limited system access, declared capabilities, and user-consent gating.
-- **Safe file operations** — Path-traversal prevention, atomic writes, temporary file cleanup, and restricted permissions where applicable.
-
----
-
 ## Screenshots
 
 <!-- Replace the paths below with actual screenshots -->
