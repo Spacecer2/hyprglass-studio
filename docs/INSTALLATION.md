@@ -33,7 +33,7 @@ yay -S wallust
 First, install the HyprGlass Hyprland plugin via hyprpm:
 
 ```bash
-hyprpm add https://github.com/hyprnux/hyprglass
+hyprpm add https://github.com/Spacecer2/hyprglass-studio
 hyprpm enable hyprglass
 ```
 
@@ -53,35 +53,40 @@ git clone https://github.com/Spacecer2/hyprglass-studio.git
 cd hyprglass-studio
 ```
 
-### 3. Run the Setup Script
+### 3. Run the Installer
 
 ```bash
-chmod +x setup.sh
-./setup.sh
+chmod +x install.sh
+./install.sh
 ```
 
-The setup script will:
+The installer will:
 
 - Detect your existing Hyprland configuration
-- Create backups of all files it modifies
-- Install the Studio UI launcher
-- Configure glass effect defaults
-- Set up wallust integration (if wallust is installed)
+- Create timestamped backups of all files it modifies
+- Install the `hyprglass` plugin via `hyprpm`
+- Copy profiles, scripts, and wallust templates
+- Generate `Hyprglass.conf` and a startup fix script if missing
+- Patch `hyprland.conf` safely without overwriting dotfiles
+- Set executable permissions on helper scripts
+- Verify the installation and optionally reload Hyprland
 
-### 4. Configure for JaKooLit Dots (If Using)
+### 4. Import JaKooLit Decoration Defaults (Optional)
 
-If you're using JaKooLit's Hyprland dots, run the JaKooLit-specific configuration:
+If you're using JaKooLit's Hyprland dots, you can import your current decoration settings into a HyprGlass profile:
 
 ```bash
-chmod +x configure-jakoolit.sh
-./configure-jakoolit.sh
+chmod +x scripts/ImportJaKooLitDefaults.sh
+./scripts/ImportJaKooLitDefaults.sh --apply
 ```
 
 This will:
 
-- Merge glass effects into your existing `hyprland.conf`
-- Patch window rules for glass transparency
-- Preserve your existing keybinds and styling
+- Read your existing `~/.config/hypr/UserConfigs/UserDecorations.conf`
+- Generate a HyprGlass profile that preserves the same opacity/blur/rounding feel
+- Apply the generated profile immediately (omit `--apply` to review it first)
+
+For full JaKooLit integration and recovery steps after dotfile updates, see [JAKOOLIT.md](JAKOOLIT.md).
 
 ---
 
@@ -128,6 +133,64 @@ The Studio UI provides a GUI for:
 
 ---
 
+## System Tray Applet
+
+HyprGlass Studio ships with a system tray applet that gives you quick access to profiles, the Studio UI, and a glass-effect toggle.
+
+### Dependencies
+
+- **GTK/AppIndicator mode** (default): `python-gobject`, plus one of:
+  - `libappindicator-gtk3`
+  - `ayatana-appindicator`
+- **Rofi fallback mode**: `rofi`
+
+On Arch Linux:
+
+```bash
+sudo pacman -S python-gobject libappindicator-gtk3 rofi
+```
+
+### Running the Tray Applet
+
+From the repository:
+
+```bash
+~/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+When installed system-wide, the script is copied to:
+
+```bash
+/usr/local/share/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+If the GTK/AppIndicator dependencies are not available, the applet automatically falls back to a rofi menu. You can also force rofi mode explicitly:
+
+```bash
+~/hyprglass-studio/scripts/HyprglassTray.py --rofi
+```
+
+### Autostart
+
+Add the tray applet to your Hyprland startup configuration so it runs on login:
+
+```conf
+exec-once = ~/hyprglass-studio/scripts/HyprglassTray.py
+```
+
+For JaKooLit dots, add it to `~/.config/hypr/UserConfigs/Startup_Apps.conf`.
+
+### Tray Menu Items
+
+| Item | Action |
+|------|--------|
+| **Profiles** | Switch between available HyprGlass profiles |
+| **Open Studio** | Launch the HyprGlass Studio web UI |
+| **Toggle Glass** | Enable or disable glass effects instantly |
+| **Quit** | Close the tray applet |
+
+---
+
 ## Updating
 
 ### How Dotfile Updates Affect Config
@@ -141,46 +204,40 @@ When you update your Hyprland dots (e.g., JaKooLit's repo), your config files ma
 - `~/.config/hypr/windowrulesv2.conf`
 - `~/.config/hypr/keybindings.conf`
 
-### FixHyprglassSource.sh Recovery
+### JaKooLit Update Recovery
 
-After a dotfile update, run the recovery script to restore glass integration:
+After a JaKooLit dotfile update, run the recovery hook to restore glass integration:
 
 ```bash
 cd ~/hyprglass-studio
-chmod +x FixHyprglassSource.sh
-./FixHyprglassSource.sh
+chmod +x scripts/JaKooLitUpdateHook.sh
+./scripts/JaKooLitUpdateHook.sh
 ```
 
-This script will:
+This hook will:
 
 1. Detect which config files were overwritten
-2. Re-inject glass-related window rules
-3. Restore keybindings for glass controls
+2. Restore the `Hyprglass.conf` source/include in `hyprland.conf`
+3. Re-add the startup fix script (`FixHyprglassValues.sh`) if missing
 4. Re-apply your saved glass presets
 
 ### Backup System
 
-The installer automatically creates backups before any modification:
+The installer automatically creates timestamped backups before any modification:
 
 ```
-~/.config/hypr/backups/
-  ├── hyprland.conf.bak
-  ├── windowrules.conf.bak
+~/.config/hypr/backups/hyprglass-studio-YYYYMMDD-HHMMSS/
+  ├── hyprland.conf
+  ├── UserConfigs/Hyprglass.conf
   └── ...
 ```
 
-**Manual backup before updates:**
+**Restore from a backup:**
 
 ```bash
-cd ~/hyprglass-studio
-chmod +x BackupConfig.sh
-./BackupConfig.sh
-```
-
-**Restore from backup:**
-
-```bash
-cp ~/.config/hypr/backups/hyprland.conf.bak ~/.config/hypr/hyprland.conf
+# Replace with the actual backup directory name
+cp ~/.config/hypr/backups/hyprglass-studio-YYYYMMDD-HHMMSS/hyprland.conf ~/.config/hypr/hyprland.conf
+cp ~/.config/hypr/backups/hyprglass-studio-YYYYMMDD-HHMMSS/UserConfigs/Hyprglass.conf ~/.config/hypr/UserConfigs/Hyprglass.conf
 hyprctl reload
 ```
 
@@ -188,21 +245,21 @@ hyprctl reload
 
 ## Uninstalling
 
-### RevertHyprglass.sh
+### Uninstall
 
-To fully remove HyprGlass and restore your original configuration:
+To fully remove HyprGlass Studio and restore your original configuration:
 
 ```bash
 cd ~/hyprglass-studio
-chmod +x RevertHyprglass.sh
-./RevertHyprglass.sh
+chmod +x uninstall.sh
+./uninstall.sh
 ```
 
 This will:
 
-1. Disable the HyprGlass plugin
+1. Disable and remove the HyprGlass plugin
 2. Remove glass rules from your Hyprland config
-3. Restore all files from the most recent backup
+3. Restore files from the most recent backup
 4. Remove Studio UI desktop entries
 
 ### Manual Cleanup
@@ -219,7 +276,7 @@ rm ~/.local/bin/hyprglass-studio
 rm ~/.local/share/applications/hyprglass-studio.desktop
 
 # Remove glass configs
-rm ~/.config/hypr/glass-rules.conf
+rm ~/.config/hypr/UserConfigs/Hyprglass.conf
 
 # Remove backups (optional)
 rm -rf ~/.config/hypr/backups/
@@ -240,7 +297,7 @@ hyprctl reload
 ```bash
 # Reinstall the plugin
 hyprpm remove hyprglass
-hyprpm add https://github.com/hyprnux/hyprglass
+hyprpm add https://github.com/Spacecer2/hyprglass-studio
 hyprpm enable hyprglass
 hyprctl reload
 ```

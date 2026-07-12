@@ -2,6 +2,17 @@
 
 This directory contains screenshots showcasing the HyprGlass Studio project.
 
+> **Note:** The current files in this directory are **placeholders**. They exist so that `README.md` links do not break during development. Replace them with real screenshots before publishing or releasing the project.
+
+## Current Placeholders
+
+| Filename | Description |
+|----------|-------------|
+| `demo.gif` | Placeholder for an animated demo/recording |
+| `glass.png` | Placeholder for the glass transparency effect |
+| `studio.png` | Placeholder for the HyprGlass Studio web interface |
+| `profiles.png` | Placeholder for the profile selector |
+
 ## Required Screenshots
 
 | Filename | Description |

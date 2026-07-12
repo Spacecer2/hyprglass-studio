@@ -36,9 +36,6 @@ npm install
 
 # 4. Build the plugin
 make build
-
-# 5. Run in development mode (hot-reload enabled)
-./scripts/dev.sh --watch
 ```
 
 ### Manual Build

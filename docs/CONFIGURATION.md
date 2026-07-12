@@ -30,7 +30,7 @@ plugin:hyprglass {
 |-----------|------|-------|---------|-------------|
 | `enabled` | int | `0`/`1` | `1` | Enable or disable the plugin entirely. |
 | `default_theme` | string | `dark`/`light` | `dark` | Theme applied at startup. |
-| `default_preset` | string | `default`/`glass`/`subtle`/`ui` | `default` | Preset applied at startup. |
+| `default_preset` | string | `default`/`glass`/`subtle`/`ui` | `default` | Preset applied at startup. The built-in presets are `default` (balanced), `glass` (strong), `subtle` (minimal), and `ui` (flat). |
 | `blur_strength` | float | `0`–`10` | `2.0` | Intensity of the background blur. |
 | `blur_iterations` | int | `1`–`5` | `3` | Number of blur passes (higher = smoother, costs more GPU). |
 | `refraction_strength` | float | `0`–`2` | `0.6` | Strength of the light-bending effect through glass. |
@@ -134,9 +134,9 @@ HyprGlass uses Hyprland tags to control per-window glass behavior.
 ### Example Rules
 
 ```conf
-windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$
-windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$
-windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$
+windowrule = match:class ^(firefox)$, tag +hyprglass_disabled
+windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle
+windowrule = match:class ^(thunar)$, tag +hyprglass_enabled
 ```
 
 ## Presets
@@ -145,12 +145,14 @@ Presets are named bundles of plugin parameters. The built-in presets are:
 
 | Preset | Description |
 |--------|-------------|
-| `default` | Balanced glass. Full blur, standard refraction and tint. |
+| `default` | Balanced glass. Full blur, standard refraction and tint. This is the startup default. |
 | `glass` | Stronger glass effect. Higher refraction, more specular, thicker edges. |
 | `subtle` | Minimal glass. Reduced blur, lower opacity, almost transparent. |
 | `ui` | Flat UI style. Minimal blur, no refraction, clean surfaces. |
 
 Presets can be applied globally via `default_preset`, per-layer via `namespace_presets`, or per-window via tags.
+
+> **Note:** The Studio UI preset selector only lists `glass`, `subtle`, and `ui`. Selecting one of those changes the exported config; `default` is preserved as the on-disk startup value by the server guard.
 
 ## Complete Example Config
 
@@ -211,7 +213,7 @@ decoration {
 
 # ─── Window Rules ──────────────────────────────────────────────────
 
-windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$
-windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$
-windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$
+windowrule = match:class ^(firefox)$, tag +hyprglass_disabled
+windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle
+windowrule = match:class ^(thunar)$, tag +hyprglass_enabled
 ```

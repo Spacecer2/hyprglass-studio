@@ -160,7 +160,8 @@ run_with_spinner() {
 
 # ── Create restore point ─────────────────────────────────────────────────────
 create_restore_point() {
-    local restore_dir="${HYPR_DIR}/backups/hyprglass-uninstall-$(date +%Y%m%d-%H%M%S)"
+    local restore_dir
+    restore_dir="${HYPR_DIR}/backups/hyprglass-uninstall-$(date +%Y%m%d-%H%M%S)"
     RESTORE_DIR="$restore_dir"
 
     if $DRY_RUN; then
@@ -174,30 +175,30 @@ create_restore_point() {
 
     if [[ -f "${HYPRLAND_CONF}" ]]; then
         cp "${HYPRLAND_CONF}" "${restore_dir}/hyprland.conf"
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${HYPR_DIR}/UserConfigs" ]]; then
         mkdir -p "${restore_dir}/UserConfigs"
         cp -r "${HYPR_DIR}/UserConfigs/"*.conf "${restore_dir}/UserConfigs/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${HYPR_DIR}/scripts" ]]; then
         mkdir -p "${restore_dir}/scripts"
         cp -r "${HYPR_DIR}/scripts/"*.sh "${restore_dir}/scripts/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -d "${WALLUST_DIR}/templates" ]]; then
         mkdir -p "${restore_dir}/wallust-templates"
         cp -r "${WALLUST_DIR}/templates/"* "${restore_dir}/wallust-templates/" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if [[ -f "${HYPR_DIR}/UserConfigs/Startup_Apps.conf" ]]; then
         cp "${HYPR_DIR}/UserConfigs/Startup_Apps.conf" "${restore_dir}/Startup_Apps.conf" 2>/dev/null || true
-        ((saved++))
+        ((saved++)) || true
     fi
 
     if (( saved > 0 )); then
@@ -251,7 +252,8 @@ cleanup_hyprland_conf() {
     fi
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
 
     awk -v src="${HYPGLASS_SRC}" -v exec="${HYPGLASS_EXEC}" '
         BEGIN { skip = 0 }
@@ -362,7 +364,8 @@ cleanup_jakoolit_startup() {
     fi
 
     local tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp -p "${HYPR_DIR}")
+    chmod 600 "$tmp"
     grep -vF "FixHyprglassValues.sh" "$startup_conf" | \
     grep -vF "WallustHyprglassHook.sh" | \
     grep -vF "# HyprGlass Studio" > "$tmp" || true
@@ -439,9 +442,9 @@ cleanup_old_backups() {
     fi
 
     local backup_dir="${HYPR_DIR}/backups"
-    if [[ -d "$backup_dir" ]] && confirm "Remove old installer backups in ${backup_dir}?"; then
-        run_cmd rm -rf "$backup_dir"
-        success "Removed ${backup_dir}"
+    if [[ -d "$backup_dir" ]] && confirm "Remove old HyprGlass installer backups in ${backup_dir}?"; then
+        run_cmd rm -rf "${backup_dir}"/hyprglass-studio-*
+        success "Removed HyprGlass installer backups from ${backup_dir}"
     else
         info "Keeping backup directory"
     fi

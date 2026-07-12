@@ -7,7 +7,37 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="load-error" class="load-error" hidden>
+      <strong>Hyprglass Studio failed to load</strong>
+      <span id="load-error-detail">Check the browser console for details.</span>
+    </div>
     <div id="app"></div>
+    <script>
+      (function () {
+        const banner = document.getElementById('load-error');
+        const detail = document.getElementById('load-error-detail');
+        function showLoadError(message) {
+          if (banner) {
+            banner.hidden = false;
+            if (detail && message) detail.textContent = String(message);
+          }
+        }
+        window.addEventListener('error', function (event) {
+          if (!event.filename || event.filename.includes('app.js')) {
+            showLoadError(event.message || 'JavaScript runtime error');
+          }
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+          showLoadError(event.reason?.message || 'Unhandled promise rejection');
+        });
+        setTimeout(function () {
+          const app = document.getElementById('app');
+          if (app && app.childElementCount === 0) {
+            showLoadError('app.js did not initialize within the expected time.');
+          }
+        }, 5000);
+      })();
+    </script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

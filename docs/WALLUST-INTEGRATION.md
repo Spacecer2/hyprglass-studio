@@ -73,12 +73,12 @@ The luminance check ensures the glass effect remains visible regardless of wallp
 Color sync is driven by a single script:
 
 ```
-WallustSwww.sh
+WallustHyprglassHook.sh
 ```
 
 This script runs whenever the wallpaper changes (typically triggered by `swww` or your wallpaper manager):
 
-1. **Wallpaper change detected** → `WallustSwww.sh` executes
+1. **Wallpaper change detected** → `WallustHyprglassHook.sh` executes
 2. **Wallust processes** `colors-hyprglass.conf` → writes `wallust-generated.conf`
 3. **`hyprctl reload`** applies the new config to all Hyprland windows
 
