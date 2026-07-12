@@ -8,10 +8,16 @@ services:
     image: hyprglass-studio:latest
     container_name: hyprglass-studio
     ports:
-      - "8765:8765"
+      # Bind only to the Docker host's loopback interface. The container itself
+      # still listens on 0.0.0.0 so the port mapping works.
+      - "127.0.0.1:8765:8765"
     environment:
       - STUDIO_HOST=0.0.0.0
       - STUDIO_PORT=8765
+      # A shared secret is required to call state-changing API endpoints.
+      # Generate one before starting the container, e.g.:
+      #   export STUDIO_TOKEN=$(openssl rand -hex 24)
+      - STUDIO_TOKEN=${STUDIO_TOKEN:?STUDIO_TOKEN must be set in the environment}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/api/health"]

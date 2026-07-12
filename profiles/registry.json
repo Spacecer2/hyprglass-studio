@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-07-12",
+  "source": "https://github.com/neo/hyprglass-studio/tree/main/profiles/community",
+  "profiles": [
+    {
+      "name": "cyberpunk",
+      "file": "community/cyberpunk.conf",
+      "version": "1.0.0",
+      "author": "HyprGlass Community",
+      "description": "Neon cyberpunk glass with high blur and magenta/cyan tint",
+      "tags": ["dark", "neon", "colorful", "high-contrast"]
+    },
+    {
+      "name": "solarized",
+      "file": "community/solarized.conf",
+      "version": "1.0.0",
+      "author": "HyprGlass Community",
+      "description": "Solarized Dark glass with blue-green tint and calm contrast",
+      "tags": ["dark", "classic", "low-contrast"]
+    },
+    {
+      "name": "gruvbox",
+      "file": "community/gruvbox.conf",
+      "version": "1.0.0",
+      "author": "HyprGlass Community",
+      "description": "Warm Gruvbox Dark glass with earthy amber/brown tint",
+      "tags": ["dark", "warm", "earthy"]
+    },
+    {
+      "name": "catppuccin",
+      "file": "community/catppuccin.conf",
+      "version": "1.0.0",
+      "author": "HyprGlass Community",
+      "description": "Soft Catppuccin Mocha glass with pastel pink/lavender tint",
+      "tags": ["dark", "pastel", "soft"]
+    },
+    {
+      "name": "everforest",
+      "file": "community/everforest.conf",
+      "version": "1.0.0",
+      "author": "HyprGlass Community",
+      "description": "Muted Everforest Dark glass with soft sage green tint",
+      "tags": ["dark", "muted", "green", "nature"]
+    }
+  ]
+}
