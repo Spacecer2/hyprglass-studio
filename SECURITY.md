@@ -45,6 +45,48 @@ File system operations follow security best practices:
 - Temporary file cleanup
 - Restricted directory permissions where applicable
 
+## Audit History
+
+### 2026-07-12 — Full script and server audit
+
+A security audit of `install.sh`, `uninstall.sh`, `src/server.py`, and all scripts under `scripts/` was performed. The following issues were identified and fixed:
+
+#### Studio server (`src/server.py`)
+
+- **Issue:** State-changing endpoints (`/api/apply`, `/api/preview`) had no authentication, so any local user connecting to the loopback interface could modify the Hyprland configuration.
+- **Fix:** Added optional token authentication. Set the `STUDIO_TOKEN` environment variable and send the same value in the `X-HyprGlass-Token` request header. Without a token the server still starts for backward compatibility but prints a warning. The default bind address remains `127.0.0.1`; binding to a non-loopback address now emits a warning.
+
+#### Temporary file handling
+
+- **Issue:** Several scripts created temporary files with bare `mktemp`, placing them in `/tmp` (world-writable) where symlink attacks are possible.
+- **Fix:** Updated the following scripts to create temporary files under the destination configuration directory with `mktemp -p` and restricted permissions (`chmod 600`):
+  - `uninstall.sh`
+  - `scripts/JaKooLitUpdateHook.sh`
+  - `scripts/MigrateHyprglassConfig.sh`
+
+#### Installer path validation
+
+- **Issue:** `install.sh` only validated that `HYPR_DIR` and `WALLUST_DIR` were under `$HOME`.
+- **Fix:** Extended `validate_target_paths` to also validate `USER_CONFIGS_DIR`, `SCRIPTS_DIR`, `PROFILES_DIR`, and `BACKUP_DIR`.
+
+#### Uninstaller backup cleanup
+
+- **Issue:** `uninstall.sh` offered to remove the entire `~/.config/hypr/backups` directory, which could delete unrelated backups.
+- **Fix:** Cleanup now removes only `hyprglass-studio-*` directories inside the backups folder.
+
+#### Wallust cache permissions
+
+- **Issue:** `scripts/WallustHyprglassHook.sh` wrote the wallust color cache with default permissions.
+- **Fix:** The cache file is now created with `chmod 600` so only the owner can read it.
+
+#### Other verified security properties
+
+- No `curl ... | bash` or equivalent remote auto-execution patterns exist.
+- No `sudo`, `doas`, or `pkexec` privilege escalation is performed; `install.sh` explicitly refuses to run as root unless `--allow-root` is passed.
+- No `eval` or dynamic code execution is used in shell scripts.
+- No world-writable files are created.
+- `server.py` uses `json.loads` for request bodies (no unsafe deserialization), validates `Content-Length`, writes only to fixed paths under `$HOME`, and invokes the validator with a list argument (no shell injection).
+
 ## Plugin Permissions
 
 When using Hyprglass Studio plugins, be aware:
@@ -62,3 +104,15 @@ When using Hyprglass Studio plugins, be aware:
 - Review plugin permission requests before granting access
 - Report suspicious behavior immediately
 - Use strong, unique credentials for any integrated services
+
+### Securing the Studio server
+
+When running `src/server.py` or `HyprglassTray.py`:
+
+1. Start the server with a token:
+   ```bash
+   export STUDIO_TOKEN="$(openssl rand -hex 32)"
+   python3 src/server.py
+   ```
+2. Do not bind to `0.0.0.0` unless you understand the network exposure.
+3. The tray applet currently launches the server without a token. For a multi-user system, launch the server manually with `STUDIO_TOKEN` set and configure the tray to connect to the existing instance.

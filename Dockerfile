@@ -23,8 +23,9 @@ USER studio
 COPY --chown=studio:studio requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Copy application source code
+# Copy application source code and helper scripts
 COPY --chown=studio:studio src/ ./src/
+COPY --chown=studio:studio scripts/ ./scripts/
 
 # Expose the Studio server port
 EXPOSE 8765

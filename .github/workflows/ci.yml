@@ -21,10 +21,133 @@ jobs:
         run: pip install ruff
       
       - name: Lint Python
-        run: ruff check src/
+        run: ruff check src/ tests/ scripts/
       
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: scripts/
           severity: warning
+
+      - name: Validate JavaScript
+        run: |
+          set -e
+          bash scripts/ValidateAppJS.sh
+          node --check src/app.js
+          node --check src/bundle.js
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan
+        run: |
+          cat > /tmp/secret_patterns.txt <<'EOF'
+          AKIA[0-9A-Z]{16}
+          ghp_[a-zA-Z0-9]{36}
+          gho_[a-zA-Z0-9]{36}
+          sk-[a-zA-Z0-9]{48}
+          sk_live_[a-zA-Z0-9]{24,}
+          BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY
+          password\s*=\s*["'][^"']{8,}["']
+          EOF
+          found=0
+          while IFS= read -r pattern; do
+            [ -z "$pattern" ] && continue
+            matches=$(git grep -n -E "$pattern" || true)
+            if [ -n "$matches" ]; then
+              echo "Potential secret matched: $pattern"
+              echo "$matches"
+              found=1
+            fi
+          done < /tmp/secret_patterns.txt
+          if [ "$found" -ne 0 ]; then
+            echo "::error::Potential secrets detected by regex scan"
+            exit 1
+          fi
+          echo "No secrets detected"
+
+      - name: Validate Hyprglass.conf
+        run: |
+          if [ -f "Hyprglass.conf" ]; then
+            echo "Validating Hyprglass.conf"
+            bash scripts/ValidateHyprglassConf.sh Hyprglass.conf
+          else
+            echo "Hyprglass.conf not found at repository root; validating representative fixture"
+            bash scripts/ValidateHyprglassConf.sh tests/fixtures/valid.conf
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run bandit on Python files
+        run: |
+          pip install bandit
+          if [ -d "src" ]; then
+            bandit -r src/ --severity-level high --confidence-level high
+          else
+            echo "No src/ directory; skipping bandit"
+          fi
+
+      - name: Check for hardcoded paths
+        run: |
+          set +e
+          found=0
+          matches=$(grep -RInE '(^|[^A-Za-z0-9_])/home/[^/]+|(^|[^A-Za-z0-9_])/root/' src/ scripts/ || true)
+          if [ -n "$matches" ]; then
+            echo "::error::Hardcoded home/root paths detected"
+            echo "$matches"
+            found=1
+          fi
+          if [ "$found" -ne 0 ]; then
+            exit 1
+          fi
+          echo "No hardcoded home/root paths detected"
+
+  test-python:
+    name: test-python
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run pytest suite
+        run: make test
+
+  test-node:
+    name: test-node
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Run npm tests
+        run: npm test

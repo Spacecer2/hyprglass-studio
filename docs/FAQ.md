@@ -28,7 +28,7 @@
 ---
 
 ### Q: Can I use it with JaKooLit dots?
-**A:** Yes, but copy.sh will overwrite configs. Run FixHyprglassSource.sh after.
+**A:** Yes, but `copy.sh` will overwrite HyprGlass entries. Run `JaKooLitUpdateHook.sh` after, or re-run `install.sh --yes`.
 
 ---
 
@@ -79,22 +79,22 @@ See [Configuration Guide](CONFIGURATION.md) for detailed configuration documenta
 ---
 
 ### Q: How do I switch profiles?
-**A:** Use `hyprglassctl --profile <name>` or switch via the Studio UI dropdown. Profiles are stored in `~/.config/hypr/profiles/`.
+**A:** Use `~/.config/hypr/scripts/HyprglassProfile.sh apply <name>`, press `SUPER + G` to cycle, or open the rofi menu with `SUPER + SHIFT + G`. Profiles are stored in `~/.config/hypr/hyprglass-profiles/`.
 
 ---
 
 ### Q: Can profiles override window rules per-app?
-**A:** Yes. Each profile can define its own window rule overrides. See [Profile Documentation](PROFILES.md).
+**A:** Yes. Each profile can define its own `$window_rules.*` overrides. See [Profile Documentation](PROFILES.md).
 
 ---
 
 ### Q: What happens to unsaved changes when I switch profiles?
-**A:** Unsaved tweaks are discarded. Use `hyprglassctl --save` before switching to preserve your current state.
+**A:** Unsaved Studio UI tweaks are kept in your browser until you click **Apply** or **Reset**. Profile switches via `HyprglassProfile.sh` apply the profile values immediately and do not affect the Studio UI state.
 
 ---
 
 ### Q: Can I import/export profiles for sharing?
-**A:** Yes. Use `hyprglassctl --export <name>` to create a portable JSON file, and `--import <file>` to load it.
+**A:** Profiles are plain `.conf` files. Copy them in or out of `~/.config/hypr/hyprglass-profiles/`. For a walkthrough, see [Sharing Profiles](PROFILE-SHARING.md).
 
 ---
 
@@ -142,4 +142,4 @@ See [Performance Tuning](PERFORMANCE.md) for optimization tips.
 ---
 
 ### Q: Can I disable glass globally without removing it?
-**A:** Yes. Run `hyprglassctl --disable` to toggle off without uninstalling. Re-enable with `--enable`.
+**A:** Yes. Apply the `gaming` profile (which disables glass), or set `enabled = 0` in `Hyprglass.conf` and reload. You can also uncheck **Enable plugin** in the Studio UI and click **Apply**.

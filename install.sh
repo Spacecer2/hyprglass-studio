@@ -3,7 +3,7 @@
 # HyprGlass Studio Installer
 # Production-ready setup for HyprGlass Studio on Hyprland.
 #
-# shellcheck disable=SC2317,SC2181
+# shellcheck disable=SC2317,SC2181,SC2016
 
 set -euo pipefail
 
@@ -17,6 +17,9 @@ SCRIPTS_DIR="${HYPR_DIR}/scripts"
 PROFILES_DIR="${HYPR_DIR}/hyprglass-profiles"
 WALLUST_DIR="${HOME}/.config/wallust"
 WALLUST_TEMPLATES_DIR="${WALLUST_DIR}/templates"
+
+STUDIO_DIR="${HYPR_DIR}/hyprglass-studio"
+STUDIO_SRC_DIR="${STUDIO_DIR}/src"
 
 HYPRLAND_CONF="${HYPR_DIR}/hyprland.conf"
 STARTUP_CONF="${USER_CONFIGS_DIR}/Startup_Apps.conf"
@@ -38,6 +41,32 @@ SKIP_PLUGIN=false
 SKIP_WALLUST=false
 DRY_RUN=false
 VERBOSE=false
+ALLOW_ROOT=false
+FORCE=false
+
+# ── Security guards ──────────────────────────────────────────────────────────
+require_non_root() {
+    # The installer writes to the user's HOME and should not run as root/sudo
+    # unless explicitly allowed (e.g. in a container).
+    if [[ "$EUID" -eq 0 && "$ALLOW_ROOT" != "true" ]]; then
+        err "Do not run this installer as root or with sudo."
+        err "It writes to your user config directory (\$HOME/.config)."
+        err "If you really intend to run as root, pass --allow-root."
+        exit 1
+    fi
+}
+
+validate_target_paths() {
+    # All target paths must live under HOME to avoid accidental system writes.
+    local path home_prefix
+    home_prefix="$HOME"
+    [[ "$home_prefix" != / ]] && home_prefix="${home_prefix%/}/"
+    for path in "$HYPR_DIR" "$USER_CONFIGS_DIR" "$SCRIPTS_DIR" "$PROFILES_DIR" "$WALLUST_DIR" "$BACKUP_DIR" "$STUDIO_DIR"; do
+        if [[ -n "${path:-}" && "$path" != "$HOME" && "$path" != "$home_prefix"* ]]; then
+            fatal "Refusing to install outside \$HOME: $path"
+        fi
+    done
+}
 
 # ── State ────────────────────────────────────────────────────────────────────
 IS_JAKOOLIT=false
@@ -50,7 +79,6 @@ CURRENT_STEP=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 BOLD='\033[1m'
@@ -73,7 +101,10 @@ progress_step() {
     local pct=$(( CURRENT_STEP * 100 / TOTAL_STEPS ))
     local filled=$(( pct / 2 ))
     local empty=$(( 50 - filled ))
-    printf "  ${BOLD}[${GREEN}%${filled}s${DIM}%${empty}s${RESET}${BOLD}]${RESET} %3d%% — %s\n" "" "" "${pct}" "${label}"
+    local fill_bar empty_bar
+    fill_bar=$(printf '%*s' "$filled" '' | tr ' ' '=')
+    empty_bar=$(printf '%*s' "$empty" '' | tr ' ' '-')
+    printf "  ${BOLD}[${GREEN}%s${DIM}%s${RESET}${BOLD}]${RESET} %3d%% — %s\n" "$fill_bar" "$empty_bar" "${pct}" "${label}"
 }
 
 progress_reset() {
@@ -119,7 +150,8 @@ confirm() {
 
 # ── Help text ────────────────────────────────────────────────────────────────
 show_help() {
-    cat <<EOF
+    local help_text
+    help_text=$(cat <<EOF
 ${BOLD}HyprGlass Studio Installer${RESET}
 
 ${BOLD}USAGE${RESET}
@@ -131,6 +163,8 @@ ${BOLD}OPTIONS${RESET}
     ${BOLD}--skip-plugin${RESET}    Skip hyprglass plugin installation via hyprpm
     ${BOLD}--skip-wallust${RESET}   Skip wallust installation / integration check
     ${BOLD}--verbose, -v${RESET}    Print extra debug information
+    ${BOLD}--allow-root${RESET}     Allow running as root (not recommended)
+    ${BOLD}--force${RESET}          Overwrite existing config and bypass validation
     ${BOLD}--help, -h${RESET}       Show this help message and exit
 
 ${BOLD}EXAMPLES${RESET}
@@ -164,6 +198,8 @@ ${BOLD}DESCRIPTION${RESET}
       ${BACKUP_DIR}
 
 EOF
+)
+    echo -e "$help_text"
     exit 0
 }
 
@@ -176,6 +212,8 @@ parse_args() {
             --skip-wallust)  SKIP_WALLUST=true ;;
             --dry-run)       DRY_RUN=true ;;
             --verbose|-v)    VERBOSE=true ;;
+            --allow-root)    ALLOW_ROOT=true ;;
+            --force)         FORCE=true ;;
             --help|-h)       show_help ;;
             *) fatal "Unknown option: $1 (use --help for usage)" ;;
         esac
@@ -190,6 +228,31 @@ run_cmd() {
         return 0
     fi
     "$@"
+}
+
+# ── URL validation ───────────────────────────────────────────────────────────
+validate_url_scheme() {
+    local url="$1"
+    if [[ ! "$url" =~ ^https:// ]]; then
+        fatal "Only HTTPS URLs are allowed for remote code installation: $url"
+    fi
+}
+
+confirm_external_install() {
+    local what="$1"
+    if $DRY_RUN; then
+        dry "Would prompt to install $what from remote sources"
+        return 0
+    fi
+    if $AUTO_YES; then
+        warn "--yes set: installing $what without interactive confirmation"
+        return 0
+    fi
+    if ! confirm "Install $what from remote sources?"; then
+        log "Skipping $what installation"
+        return 1
+    fi
+    return 0
 }
 
 # ── File helpers ─────────────────────────────────────────────────────────────
@@ -248,6 +311,8 @@ check_prereqs() {
         local ver
         ver=$(hyprctl version 2>/dev/null | head -1 || echo "unknown")
         ok "Hyprland found: ${ver}"
+    elif $DRY_RUN; then
+        warn "hyprctl not found — skipping Hyprland check in dry-run mode"
     else
         err "hyprctl not found — Hyprland is not installed or not in PATH"
         failures=$((failures + 1))
@@ -256,6 +321,8 @@ check_prereqs() {
     # hyprpm
     if command -v hyprpm &>/dev/null; then
         ok "hyprpm found"
+    elif $DRY_RUN; then
+        warn "hyprpm not found — skipping plugin-manager check in dry-run mode"
     else
         err "hyprpm not found — install the Hyprland plugin manager"
         failures=$((failures + 1))
@@ -352,13 +419,22 @@ install_plugin() {
 
     log "Installing HyprGlass plugin via hyprpm..."
 
+    validate_url_scheme "$REPO_URL"
+
+    if ! confirm_external_install "the hyprglass Hyprland plugin"; then
+        SKIP_PLUGIN=true
+        echo ""
+        return
+    fi
+
     if $DRY_RUN; then
         if hyprpm list 2>/dev/null | grep -q hyprglass; then
             dry "Plugin already installed; would offer reinstall"
         else
             dry "Would run: hyprpm add ${REPO_URL}"
             dry "Would run: hyprpm enable hyprglass"
-            dry "Would run: hyprpm update hyprglass"
+            dry "Would run: hyprpm update"
+            dry "Would run: hyprpm reload"
         fi
         echo ""
         return
@@ -395,8 +471,12 @@ install_plugin() {
         fi
         spinner_stop
 
-        spinner_start "Updating hyprglass plugin"
-        hyprpm update hyprglass 2>/dev/null || true
+        spinner_start "Updating plugins via hyprpm"
+        hyprpm update 2>/dev/null || true
+        spinner_stop
+
+        spinner_start "Reloading hyprglass plugin"
+        hyprpm reload 2>/dev/null || true
         spinner_stop
     fi
 
@@ -431,8 +511,7 @@ install_wallust() {
         return
     fi
 
-    if ! confirm "Install wallust?"; then
-        log "Skipping wallust installation"
+    if ! confirm_external_install "wallust"; then
         echo ""
         return
     fi
@@ -482,7 +561,9 @@ install_wallust() {
 # ── Generate default Hyprglass.conf ──────────────────────────────────────────
 generate_hyprglass_conf() {
     if [[ -f "$HYPGLASS_CONF_DEST" ]]; then
-        if confirm "Hyprglass.conf already exists. Overwrite with defaults?"; then
+        if $FORCE; then
+            log "--force set: overwriting existing Hyprglass.conf"
+        elif confirm "Hyprglass.conf already exists. Overwrite with defaults?"; then
             true
         else
             ok "Keeping existing Hyprglass.conf"
@@ -499,67 +580,127 @@ generate_hyprglass_conf() {
 
     mkdir -p "$USER_CONFIGS_DIR"
 
-    cat > "$HYPGLASS_CONF_DEST" <<'EOF'
-# ─── HyprGlass Studio Configuration ─────────────────────────────────────
-# Auto-generated by install.sh. Edit freely, but keep the structure intact.
+    local tmp_conf
+    tmp_conf=$(mktemp "${USER_CONFIGS_DIR}/.Hyprglass.conf.XXXXXX")
+    trap 'rm -f "${tmp_conf}"' RETURN
 
+    cat > "$tmp_conf" <<'EOF'
+# HyprGlass Studio Configuration
 plugin:hyprglass {
-    enabled = 1
-    default_theme = dark
-    default_preset = default
-    blur_strength = 2.0
-    blur_iterations = 3
-    refraction_strength = 0.6
-    chromatic_aberration = 0.5
-    fresnel_strength = 0.6
-    specular_strength = 0.8
-    glass_opacity = 1.0
-    edge_thickness = 0.06
-    lens_distortion = 0.5
-    tint_color = 0x8899aa22
+  enabled = 1
+  default_theme = dark
+  default_preset = default
+  blur_strength = 3.4
+  blur_iterations = 2
+  refraction_strength = 0.96
+  chromatic_aberration = 0.7
+  fresnel_strength = 0.96
+  specular_strength = 0.6
+  glass_opacity = 1
+  edge_thickness = 0.14
+  lens_distortion = 0.42
+  tint_color = 0x99c1f122
+  dark:brightness = 1.1
+  dark:contrast = 1.2
+  dark:saturation = 1.15
+  dark:vibrancy = 0.7
+  dark:vibrancy_darkness = 0.52
+  dark:adaptive_dim = 0.65
+  dark:adaptive_boost = 0.34
+  light:brightness = 1.05
+  light:contrast = 0.92
+  light:saturation = 0.85
+  light:vibrancy = 0.12
+  light:vibrancy_darkness = 0
+  light:adaptive_dim = 0
+  light:adaptive_boost = 0.4
+  layers:enabled = 1
+  layers:namespaces = waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi
+  layers:exclude_namespaces = 
+  layers:preset = subtle
+  layers:namespace_presets = waybar:subtle, quickshell:bezel:ui
+  layers:namespace_mask_thresholds = waybar=0.05, quickshell:overview=0.3, quickshell:bezel=0.3, rofi=0.05
 }
 
-# ─── Dark Theme ─────────────────────────────────────────────────────────
-dark:brightness = 0.8192
-dark:contrast = 0.8914
-dark:saturation = 1.1911
-dark:vibrancy = 0.369
-dark:vibrancy_darkness = 0.6918
-dark:adaptive_dim = 0.0
-dark:adaptive_boost = 0.0
-
-# ─── Light Theme ────────────────────────────────────────────────────────
-light:brightness = 1.0
-light:contrast = 1.0
-light:saturation = 1.0
-light:vibrancy = 0.2
-light:vibrancy_darkness = 0.3
-light:adaptive_dim = 0.0
-light:adaptive_boost = 0.0
-
-# ─── Layer Settings ─────────────────────────────────────────────────────
-layers:enabled = 1
-layers:namespaces = layer:surface
-layers:exclude_namespaces = layer:notifications
-layers:preset = default
-layers:namespace_presets = layer:surface=glass
-layers:namespace_mask_thresholds = layer:surface:0.3
-
-# ─── Decoration Overrides ───────────────────────────────────────────────
+# Override Jakoolit defaults so HyprGlass has visible transparency to work with
 decoration {
-    active_opacity = 0.75
-    inactive_opacity = 0.65
+  active_opacity = 0.75
+  inactive_opacity = 0.65
+  fullscreen_opacity = 1
 }
 
-# ─── Window Rules ───────────────────────────────────────────────────────
-windowrulev2 = tag +hyprglass_disabled, class:^(firefox)$
-windowrulev2 = tag +hyprglass_preset_subtle, class:^(kitty)$
-windowrulev2 = tag +hyprglass_enabled, class:^(thunar)$
-
-# ─── Wallust Color Sync (optional) ──────────────────────────────────────
-# If wallust is installed, these variables are updated by the wallust hook.
-# $tint_color = rgb(aa88ff)
+# Per-window glass overrides
+windowrule = match:class ^(waterfox)$, tag +browser
+windowrule = match:class ^(waterfox)$, tag +hyprglass_enabled
+windowrule = match:class ^(waterfox)$, tag +hyprglass_preset_glass
+windowrule = match:class ^(waterfox)$, opacity 0.75 0.65
 EOF
+
+    chmod 644 "$tmp_conf"
+
+    # Validate the generated temp file BEFORE moving it into place.
+    local validation_failed=false
+    local validator="${SCRIPT_DIR}/scripts/ValidateHyprglassConf.sh"
+    if [[ -x "$validator" ]]; then
+        if ! bash "$validator" "$tmp_conf" >/dev/null 2>&1; then
+            err "Validation failed: ${validator} rejected the generated config"
+            bash "$validator" "$tmp_conf" >&2 || true
+            validation_failed=true
+        fi
+    else
+        warn "External validator not found, using inline validation"
+        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$tmp_conf"; then
+            err "Validation failed: blur_strength is not 3.4"
+            validation_failed=true
+        fi
+        if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$tmp_conf"; then
+            err "Validation failed: found legacy windowrulev2 syntax"
+            validation_failed=true
+        fi
+        local wr_line
+        while IFS= read -r wr_line; do
+            wr_line="${wr_line%%#*}"
+            [[ -z "${wr_line// }" ]] && continue
+            if ! [[ "$wr_line" =~ ^[[:space:]]*windowrule[[:space:]]*=[[:space:]]*([^,]+),[[:space:]]*(.+)$ ]]; then
+                err "Validation failed: windowrule not in MATCH, RULE order: $wr_line"
+                validation_failed=true
+            else
+                local match_spec="${BASH_REMATCH[1]}"
+                match_spec="${match_spec% }"
+                if [[ "$match_spec" != match:* ]]; then
+                    err "Validation failed: windowrule MATCH must begin with 'match:': $wr_line"
+                    validation_failed=true
+                fi
+            fi
+        done < <(grep -E '^[[:space:]]*windowrule[[:space:]]*=' "$tmp_conf" || true)
+        if grep -qE 'layer:surface' "$tmp_conf"; then
+            err "Validation failed: found layer:surface values (use waybar, swaync, etc.)"
+            validation_failed=true
+        fi
+        if ! grep -qE '^[[:space:]]*layers:namespaces[[:space:]]*=[[:space:]]*.*(waybar|swaync)' "$tmp_conf"; then
+            err "Validation failed: layers:namespaces missing waybar/swaync values"
+            validation_failed=true
+        fi
+        if awk '/^plugin:hyprglass \{/{in_plugin=1} /^\}/{if(in_plugin) in_plugin=0} !in_plugin && /^[[:space:]]*(dark|light|layers):/{print}' "$tmp_conf" | grep -q .; then
+            err "Validation failed: theme/layers values found outside plugin:hyprglass block"
+            validation_failed=true
+        fi
+    fi
+
+    if $validation_failed; then
+        rm -f "$tmp_conf"
+        fatal "Generated Hyprglass.conf failed validation. Use --force to bypass."
+    fi
+
+    # Back up the existing config before overwriting it.
+    if [[ -f "$HYPGLASS_CONF_DEST" ]]; then
+        mkdir -p "$BACKUP_DIR"
+        cp -a "$HYPGLASS_CONF_DEST" "${BACKUP_DIR}/Hyprglass.conf"
+        log "Backed up existing Hyprglass.conf to ${BACKUP_DIR}/Hyprglass.conf"
+    fi
+
+    mv -f "$tmp_conf" "$HYPGLASS_CONF_DEST"
+    trap - RETURN
 
     ok "Generated ${HYPGLASS_CONF_DEST}"
 }
@@ -584,10 +725,14 @@ generate_fix_script() {
 
     mkdir -p "$SCRIPTS_DIR"
 
-    cat > "$FIX_SCRIPT_DEST" <<'EOF'
+    local tmp_fix
+    tmp_fix=$(mktemp "${SCRIPTS_DIR}/.FixHyprglassValues.sh.XXXXXX")
+    trap 'rm -f "${tmp_fix}"' RETURN
+
+    cat > "$tmp_fix" <<'EOF'
 #!/usr/bin/env bash
 # FixHyprglassValues.sh
-# Applies the default HyprGlass profile at session startup.
+# Applies the correct HyprGlass values at session startup.
 # This script is executed once by Hyprland via exec-once.
 
 set -euo pipefail
@@ -604,17 +749,61 @@ if [[ -x "$PROFILE_SCRIPT" ]] && [[ -f "${PROFILES_DIR}/default.conf" ]]; then
     "$PROFILE_SCRIPT" apply default >/dev/null 2>&1 || true
 fi
 
-# If wallust colors are present, apply them
+# Apply correct HyprGlass values (not plugin defaults) in a single batched call.
+if command -v hyprctl &>/dev/null; then
+    hyprctl --batch "\
+keyword plugin:hyprglass:blur_strength 3.4;\
+keyword plugin:hyprglass:blur_iterations 2;\
+keyword plugin:hyprglass:refraction_strength 0.96;\
+keyword plugin:hyprglass:chromatic_aberration 0.7;\
+keyword plugin:hyprglass:fresnel_strength 0.96;\
+keyword plugin:hyprglass:specular_strength 0.6;\
+keyword plugin:hyprglass:edge_thickness 0.14;\
+keyword plugin:hyprglass:lens_distortion 0.42;\
+keyword plugin:hyprglass:tint_color 0x99c1f122;\
+keyword plugin:hyprglass:dark:brightness 1.1;\
+keyword plugin:hyprglass:dark:contrast 1.2;\
+keyword plugin:hyprglass:dark:saturation 1.15;\
+keyword plugin:hyprglass:dark:vibrancy 0.7;\
+keyword plugin:hyprglass:dark:vibrancy_darkness 0.52;\
+keyword plugin:hyprglass:dark:adaptive_dim 0.65;\
+keyword plugin:hyprglass:dark:adaptive_boost 0.34;\
+keyword plugin:hyprglass:light:brightness 1.05;\
+keyword plugin:hyprglass:light:contrast 0.92;\
+keyword plugin:hyprglass:light:saturation 0.85;\
+keyword plugin:hyprglass:light:vibrancy 0.12;\
+keyword plugin:hyprglass:light:vibrancy_darkness 0;\
+keyword plugin:hyprglass:light:adaptive_dim 0;\
+keyword plugin:hyprglass:light:adaptive_boost 0.4;\
+keyword plugin:hyprglass:layers:enabled 1;\
+keyword plugin:hyprglass:layers:namespaces waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi;\
+keyword plugin:hyprglass:layers:exclude_namespaces ;\
+keyword plugin:hyprglass:layers:preset subtle;\
+keyword plugin:hyprglass:layers:namespace_presets waybar:subtle, quickshell:bezel:ui;\
+keyword plugin:hyprglass:layers:namespace_mask_thresholds waybar=0.05, quickshell:overview=0.3, quickshell:bezel=0.3, rofi=0.05;\
+" >/dev/null 2>&1 || true
+fi
+
+# If wallust colors are present, apply them in a single batched hyprctl call.
 WALLUST_CACHE="${HOME}/.cache/.hyprglass_wallust.json"
 if [[ -f "$WALLUST_CACHE" ]] && command -v hyprctl &>/dev/null; then
     tint=$(jq -r '.tint_color // empty' "$WALLUST_CACHE" 2>/dev/null)
     brightness=$(jq -r '.brightness // empty' "$WALLUST_CACHE" 2>/dev/null)
-    [[ -n "$tint" ]] && hyprctl keyword plugin:hyprglass:tint_color "$tint" >/dev/null 2>&1 || true
-    [[ -n "$brightness" ]] && hyprctl keyword plugin:hyprglass:dark:brightness "$brightness" >/dev/null 2>&1 || true
+
+    batch_cmds=""
+    [[ -n "$tint" ]] && batch_cmds+="keyword plugin:hyprglass:tint_color $tint;"
+    [[ -n "$brightness" ]] && batch_cmds+="keyword plugin:hyprglass:dark:brightness $brightness;"
+
+    if [[ -n "$batch_cmds" ]]; then
+        # hyprctl --batch executes all keywords in one IPC round-trip
+        hyprctl --batch "$batch_cmds" >/dev/null 2>&1 || true
+    fi
 fi
 EOF
 
-    chmod +x "$FIX_SCRIPT_DEST"
+    chmod 755 "$tmp_fix"
+    mv -f "$tmp_fix" "$FIX_SCRIPT_DEST"
+    trap - RETURN
     ok "Generated ${FIX_SCRIPT_DEST}"
 }
 
@@ -639,8 +828,8 @@ copy_configs() {
         progress_step "Copy profiles"
         if [[ -d "${SCRIPT_DIR}/profiles" ]]; then
             local n
-            n=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f -name '*.conf' | wc -l)
-            dry "Would copy ${n} profile(s) -> ${PROFILES_DIR}/"
+            n=$(find "${SCRIPT_DIR}/profiles" -type f -name '*.conf' | wc -l)
+            dry "Would copy ${n} profile(s) (including themes/community) -> ${PROFILES_DIR}/"
         fi
 
         progress_step "Copy scripts"
@@ -679,14 +868,14 @@ copy_configs() {
     progress_step "Startup fix script"
     generate_fix_script
 
-    # Copy profiles
+    # Copy profiles (recursively, so themes/ and community/ are included)
     progress_step "Profiles"
     if [[ -d "${SCRIPT_DIR}/profiles" ]]; then
         local profile_count
-        profile_count=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f -name '*.conf' | wc -l)
+        profile_count=$(find "${SCRIPT_DIR}/profiles" -type f -name '*.conf' | wc -l)
         if (( profile_count > 0 )); then
-            cp -a "${SCRIPT_DIR}/profiles/"*.conf "$PROFILES_DIR/" 2>/dev/null || true
-            ok "Copied ${profile_count} profile(s) -> ${PROFILES_DIR}/"
+            cp -a "${SCRIPT_DIR}/profiles/." "$PROFILES_DIR/" 2>/dev/null || true
+            ok "Copied ${profile_count} profile(s) (including themes/community) -> ${PROFILES_DIR}/"
         else
             warn "No .conf profile files found in profiles/"
         fi
@@ -719,6 +908,75 @@ copy_configs() {
     echo ""
 }
 
+# ── Studio files installation ───────────────────────────────────────────────
+install_studio_files() {
+    log "Installing HyprGlass Studio files..."
+
+    local studio_files=(
+        app.js
+        schema.js
+        bundle.js
+        styles.css
+        index.html
+        server.py
+    )
+
+    if $DRY_RUN; then
+        dry "Would create: ${STUDIO_SRC_DIR}"
+        for file in "${studio_files[@]}"; do
+            dry "Would copy src/${file} -> ${STUDIO_SRC_DIR}/${file}"
+        done
+        dry "Would run: ${SCRIPT_DIR}/scripts/ValidateAppJS.sh"
+        echo ""
+        return
+    fi
+
+    # Create Studio source directory
+    mkdir -p "$STUDIO_SRC_DIR"
+
+    # Copy required Studio files from the repository source tree
+    local copied=0
+    local missing=()
+    for file in "${studio_files[@]}"; do
+        local src_file="${SCRIPT_DIR}/src/${file}"
+        if [[ -f "$src_file" ]]; then
+            cp -a "$src_file" "${STUDIO_SRC_DIR}/${file}"
+            verb "Copied ${src_file} -> ${STUDIO_SRC_DIR}/${file}"
+            copied=$((copied + 1))
+        else
+            missing+=("$file")
+            err "Missing Studio source file: ${src_file}"
+        fi
+    done
+
+    if (( ${#missing[@]} > 0 )); then
+        fatal "Missing ${#missing[@]} required Studio file(s). Aborting installation."
+    fi
+
+    ok "Copied ${copied} Studio file(s) -> ${STUDIO_SRC_DIR}/"
+
+    # Validate the copied JavaScript files by running ValidateAppJS.sh against
+    # the installed Studio tree. The validator expects a scripts/ sibling of src/.
+    local validate_tmp_dir
+    validate_tmp_dir=$(mktemp -d)
+    trap 'rm -rf "${validate_tmp_dir}"' RETURN
+
+    mkdir -p "${validate_tmp_dir}/scripts"
+    cp -a "${SCRIPT_DIR}/scripts/ValidateAppJS.sh" "${validate_tmp_dir}/scripts/ValidateAppJS.sh"
+    ln -sf "$STUDIO_SRC_DIR" "${validate_tmp_dir}/src"
+
+    log "Running ValidateAppJS.sh on installed Studio files..."
+    if ! bash "${validate_tmp_dir}/scripts/ValidateAppJS.sh"; then
+        fatal "Studio JavaScript validation failed. Aborting installation."
+    fi
+    ok "Studio JavaScript validation passed"
+
+    trap - RETURN
+    rm -rf "$validate_tmp_dir"
+
+    echo ""
+}
+
 # ── Patch hyprland.conf safely ──────────────────────────────────────────────
 patch_hyprland_conf() {
     log "Patching Hyprland configuration..."
@@ -729,11 +987,17 @@ patch_hyprland_conf() {
             dry "Would create ${HYPRLAND_CONF} with required source/exec lines"
         elif confirm "Create a minimal hyprland.conf?"; then
             mkdir -p "$HYPR_DIR"
-            cat > "$HYPRLAND_CONF" <<EOF
+            local tmp_hypr
+            tmp_hypr=$(mktemp "${HYPR_DIR}/.hyprland.conf.XXXXXX")
+            trap 'rm -f "${tmp_hypr}"' RETURN
+            cat > "$tmp_hypr" <<EOF
 # Minimal hyprland.conf generated by HyprGlass Studio installer
 ${HYPGLASS_CONF_SRC}
 ${HYPGLASS_EXEC}
 EOF
+            chmod 644 "$tmp_hypr"
+            mv -f "$tmp_hypr" "$HYPRLAND_CONF"
+            trap - RETURN
             ok "Created minimal ${HYPRLAND_CONF}"
         else
             warn "Add the following lines manually:"
@@ -770,7 +1034,9 @@ EOF
             last_source=$(grep -nE '^source\s*=' "$HYPRLAND_CONF" | tail -1 | cut -d: -f1) || true
             sed -i "${last_source}a\\${HYPGLASS_CONF_SRC}" "$HYPRLAND_CONF"
         else
-            echo -e "\n# HyprGlass Studio\n${HYPGLASS_CONF_SRC}" >> "$HYPRLAND_CONF"
+            {
+                printf '\n# HyprGlass Studio\n%s\n' "$HYPGLASS_CONF_SRC"
+            } >> "$HYPRLAND_CONF"
         fi
         ok "Added source line: ${HYPGLASS_CONF_SRC}"
     fi
@@ -790,7 +1056,9 @@ EOF
             last_exec=$(grep -nE '^exec-once\s*=' "$exec_target" | tail -1 | cut -d: -f1) || true
             sed -i "${last_exec}a\\${HYPGLASS_EXEC}" "$exec_target"
         else
-            echo -e "\n# HyprGlass Studio startup fix\n${HYPGLASS_EXEC}" >> "$exec_target"
+            {
+                printf '\n# HyprGlass Studio startup fix\n%s\n' "$HYPGLASS_EXEC"
+            } >> "$exec_target"
         fi
         ok "Added exec-once line to $(basename "$exec_target")"
     fi
@@ -801,11 +1069,13 @@ EOF
         local bind_menu='bind = $mainMod SHIFT, G, exec, ~/.config/hypr/scripts/HyprglassProfile.sh menu'
 
         if ! file_contains "$KEYBINDS_CONF" "$bind_toggle"; then
-            echo -e "\n# HyprGlass Studio keybindings\n${bind_toggle}" >> "$KEYBINDS_CONF"
+            {
+                printf '\n# HyprGlass Studio keybindings\n%s\n' "$bind_toggle"
+            } >> "$KEYBINDS_CONF"
             ok "Added keybinding: SUPER + G  (cycle profile)"
         fi
         if ! file_contains "$KEYBINDS_CONF" "$bind_menu"; then
-            echo -e "${bind_menu}" >> "$KEYBINDS_CONF"
+            printf '%s\n' "$bind_menu" >> "$KEYBINDS_CONF"
             ok "Added keybinding: SUPER + SHIFT + G  (profile menu)"
         fi
     fi
@@ -821,7 +1091,7 @@ make_executable() {
     local count=0
 
     if $DRY_RUN; then
-        for script in "${SCRIPT_DIR}/scripts/"*.{sh,py}; do
+        for script in "$SCRIPTS_DIR/"*.{sh,py}; do
             [[ -f "$script" ]] || continue
             count=$((count + 1))
         done
@@ -844,6 +1114,11 @@ make_executable() {
 
 # ── Verification ────────────────────────────────────────────────────────────
 verify_installation() {
+    if $DRY_RUN; then
+        log "Skipping verification in dry-run mode (files are not written)."
+        return 0
+    fi
+
     log "Running verification..."
     local issues=0
 
@@ -873,7 +1148,7 @@ verify_installation() {
 
     # Check profiles
     local profile_count
-    profile_count=$(find "$PROFILES_DIR" -maxdepth 1 -type f -name '*.conf' 2>/dev/null | wc -l)
+    profile_count=$(find "$PROFILES_DIR" -type f -name '*.conf' 2>/dev/null | wc -l)
     if (( profile_count > 0 )); then
         ok "Profiles installed: ${profile_count}"
     else
@@ -883,13 +1158,12 @@ verify_installation() {
 
     # Basic sanity check: .conf profiles should contain Hyprland-style assignment lines
     local conf_errors=0
-    for prof in "$PROFILES_DIR"/*.conf; do
-        [[ -f "$prof" ]] || continue
+    while IFS= read -r -d '' prof; do
         if ! grep -qE '^\s*\$?[a-zA-Z0-9_:.@]+\s*=\s*' "$prof"; then
             warn "Profile does not appear to be valid Hyprland config: $(basename "$prof")"
             conf_errors=$((conf_errors + 1))
         fi
-    done
+    done < <(find "$PROFILES_DIR" -type f -name '*.conf' -print0 2>/dev/null)
     if (( conf_errors == 0 )); then
         ok "All profiles look like valid Hyprland .conf files"
     else
@@ -986,12 +1260,11 @@ print_summary() {
         echo "    Apply profile:    HyprglassProfile.sh apply <profile>"
         echo ""
         echo -e "  ${BOLD}Available profiles:${RESET}"
-        for prof in "$PROFILES_DIR"/*.conf; do
-            [[ -f "$prof" ]] || continue
+        while IFS= read -r -d '' prof; do
             local name
             name=$(basename "$prof" .conf)
             printf "    • %s\n" "$name"
-        done
+        done < <(find "$PROFILES_DIR" -type f -name '*.conf' -print0 2>/dev/null)
         echo ""
         echo -e "  ${BOLD}Config locations:${RESET}"
         echo "    ${HYPGLASS_CONF_DEST}"
@@ -1013,6 +1286,9 @@ print_summary() {
 # ── Main ─────────────────────────────────────────────────────────────────────
 main() {
     parse_args "$@"
+
+    require_non_root
+    validate_target_paths
 
     echo ""
     echo -e "${BOLD}HyprGlass Studio Installer${RESET}"
