@@ -1,7 +1,9 @@
 ```
-╔════════════════════════════════════════════════════════════╗
-║     HyprGlass Studio — Liquid Glass for Hyprland          ║
-╚════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║       HyprGlass Studio — Liquid Glass for Hyprland        ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
 ```
 
 > Real-time Liquid Glass effects for the Hyprland Wayland compositor.
