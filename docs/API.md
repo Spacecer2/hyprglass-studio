@@ -1,6 +1,6 @@
 # Hyprglass Studio REST API
 
-This document describes the REST API exposed by the Hyprglass Studio local server.
+This document describes the REST API exposed by the Hyprglass Studio local server (`src/server.py`).
 
 ## 1. Base URL
 
@@ -10,7 +10,7 @@ All API endpoints are relative to:
 http://localhost:8765
 ```
 
-The server runs locally on port `8765` by default. Replace `localhost:8765` with the actual host and port if the server was started with custom network settings.
+The default port is `8765`. Use `--port` or the `STUDIO_PORT` environment variable when starting the server to change it.
 
 ## 2. Authentication
 
@@ -32,8 +32,8 @@ Returns the health status of the server.
 
 ```json
 {
-  "status": "ok",
-  "service": "hyprglass-studio"
+  "ok": true,
+  "version": "1.1.0"
 }
 ```
 
@@ -47,38 +47,36 @@ curl -s http://localhost:8765/api/health | jq
 
 ### 3.2 `GET /api/config`
 
-Returns the current active configuration used by the server.
+Returns the raw text of the currently active `Hyprglass.conf`.
 
 **Response:**
 
 | Status | Description                    |
 |--------|--------------------------------|
-| 200    | Current configuration object.  |
+| 200    | Current configuration as text. |
 
 **Response body example:**
 
 ```json
 {
-  "theme": "default",
-  "opacity": 0.95,
-  "blur": true,
-  "blur_size": 12,
-  "accent_color": "#ff7b72",
-  "border_radius": 8
+  "ok": true,
+  "config": "plugin:hyprglass {\n    enabled = 1\n    ...\n}"
 }
 ```
+
+If no config has been written yet, `config` is an empty string.
 
 **curl example:**
 
 ```sh
-curl -s http://localhost:8765/api/config | jq
+curl -s http://localhost:8765/api/config | jq -r '.config'
 ```
 
 ---
 
 ### 3.3 `POST /api/preview`
 
-Generates a preview of a configuration without applying it to the live Hyprland session.
+Writes the supplied configuration temporarily, reloads Hyprland, and opens a kitty preview window. When the preview window closes, the previous config is restored.
 
 **Request headers:**
 
@@ -86,56 +84,53 @@ Generates a preview of a configuration without applying it to the live Hyprland 
 |------------------|--------------------|----------|
 | `Content-Type`   | `application/json` | Yes      |
 
+**Request body:**
+
+| Field    | Type   | Description                              |
+|----------|--------|------------------------------------------|
+| `config` | string | Full `Hyprglass.conf` content to preview.|
+
 **Request body example:**
 
-```json
-{
-  "theme": "tokyonight",
-  "opacity": 0.92,
-  "blur": true,
-  "blur_size": 16,
-  "accent_color": "#7aa2f7",
-  "border_radius": 10
-}
+```sh
+curl -s -X POST http://localhost:8765/api/preview \
+  -H "Content-Type: application/json" \
+  -d '{"config":"plugin:hyprglass {\n    enabled = 1\n    ...\n}"}'
 ```
 
 **Response:**
 
 | Status | Description                                        |
 |--------|----------------------------------------------------|
-| 200    | Preview generated successfully.                    |
-| 400    | Invalid request body or unsupported option value.  |
+| 200    | Preview opened successfully.                       |
+| 400    | Invalid request body or missing `config`.          |
 
-**Response body example:**
+**Response body examples:**
+
+Success:
 
 ```json
 {
   "ok": true,
-  "preview_id": "preview_9f3e2a1c",
-  "message": "Preview rendered"
+  "message": "preview opened",
+  "pid": 12345
 }
 ```
 
-**curl example:**
+Error (preview already active):
 
-```sh
-curl -s -X POST http://localhost:8765/api/preview \
-  -H "Content-Type: application/json" \
-  -d '{
-    "theme": "tokyonight",
-    "opacity": 0.92,
-    "blur": true,
-    "blur_size": 16,
-    "accent_color": "#7aa2f7",
-    "border_radius": 10
-  }' | jq
+```json
+{
+  "ok": false,
+  "error": "preview already active"
+}
 ```
 
 ---
 
 ### 3.4 `POST /api/apply`
 
-Applies a configuration to the live Hyprland session.
+Validates, writes, and reloads a full `Hyprglass.conf`. This is the same action triggered by the **Apply** button in the Studio UI.
 
 **Request headers:**
 
@@ -143,42 +138,37 @@ Applies a configuration to the live Hyprland session.
 |------------------|--------------------|----------|
 | `Content-Type`   | `application/json` | Yes      |
 
-**Request body example:**
+**Request body:**
 
-```json
-{
-  "theme": "catppuccin",
-  "opacity": 0.90,
-  "blur": true,
-  "blur_size": 20,
-  "accent_color": "#f5c2e7",
-  "border_radius": 12,
-  "reload": true
-}
-```
+| Field    | Type   | Description                              |
+|----------|--------|------------------------------------------|
+| `config` | string | Full `Hyprglass.conf` content to apply.  |
 
 **Response:**
 
 | Status | Description                                  |
 |--------|----------------------------------------------|
 | 200    | Configuration applied successfully.          |
-| 400    | Invalid request body or unsupported option.  |
-| 500    | Failed to apply configuration.               |
+| 400    | Invalid request body, missing `config`, or validation failure. |
 
-**Response body example:**
+**Response body examples:**
+
+Success:
 
 ```json
 {
   "ok": true,
-  "applied": {
-    "theme": "catppuccin",
-    "opacity": 0.90,
-    "blur": true,
-    "blur_size": 20,
-    "accent_color": "#f5c2e7",
-    "border_radius": 12
-  },
-  "reload": true
+  "message": "applied",
+  "backup": "/home/user/.config/hypr/backups/hyprglass-studio/apply-20260712-143052.conf"
+}
+```
+
+Validation failure:
+
+```json
+{
+  "ok": false,
+  "error": "invalid config: missing required field: default_preset"
 }
 ```
 
@@ -187,114 +177,37 @@ Applies a configuration to the live Hyprland session.
 ```sh
 curl -s -X POST http://localhost:8765/api/apply \
   -H "Content-Type: application/json" \
-  -d '{
-    "theme": "catppuccin",
-    "opacity": 0.90,
-    "blur": true,
-    "blur_size": 20,
-    "accent_color": "#f5c2e7",
-    "border_radius": 12,
-    "reload": true
-  }' | jq
-```
-
----
-
-### 3.5 `GET /api/profiles`
-
-Lists all saved configuration profiles.
-
-**Response:**
-
-| Status | Description              |
-|--------|--------------------------|
-| 200    | Array of profile names.  |
-
-**Response body example:**
-
-```json
-{
-  "profiles": [
-    "default",
-    "tokyonight",
-    "catppuccin",
-    "gruvbox",
-    "nord"
-  ]
-}
-```
-
-**curl example:**
-
-```sh
-curl -s http://localhost:8765/api/profiles | jq
-```
-
----
-
-### 3.6 `POST /api/profile/<name>`
-
-Loads and applies a saved profile by name.
-
-**URL parameters:**
-
-| Parameter | Description                         |
-|-----------|-------------------------------------|
-| `name`    | Name of the saved profile to load.  |
-
-**Response:**
-
-| Status | Description                                  |
-|--------|----------------------------------------------|
-| 200    | Profile loaded and applied successfully.     |
-| 404    | Profile not found.                           |
-| 500    | Failed to apply the loaded profile.          |
-
-**Response body example:**
-
-```json
-{
-  "ok": true,
-  "profile": "tokyonight",
-  "applied": {
-    "theme": "tokyonight",
-    "opacity": 0.92,
-    "blur": true,
-    "blur_size": 16,
-    "accent_color": "#7aa2f7",
-    "border_radius": 10
-  }
-}
-```
-
-**curl example:**
-
-```sh
-curl -s -X POST http://localhost:8765/api/profile/tokyonight | jq
+  -d '{"config":"plugin:hyprglass {\n    enabled = 1\n    default_theme = dark\n    default_preset = default\n    blur_strength = 2.0\n    ...\n}"}' | jq
 ```
 
 ## 4. Error Responses
 
-All error responses follow a consistent JSON format:
+Error responses are returned with HTTP 400 (or 404 for unknown endpoints) and a JSON body:
 
 ```json
 {
   "ok": false,
-  "error": "short_error_code",
-  "message": "Human-readable description of the error."
+  "error": "Human-readable error message"
 }
 ```
 
-## 5. Error Codes
+## 5. Validation Rules
 
-| HTTP Status | Error Code             | Description                                              |
-|-------------|------------------------|----------------------------------------------------------|
-| 400         | `invalid_request`      | The request body is malformed or contains invalid data.  |
-| 404         | `not_found`            | The requested resource or profile does not exist.        |
-| 405         | `method_not_allowed`   | The HTTP method is not supported for this endpoint.      |
-| 415         | `unsupported_media`    | The `Content-Type` header is missing or not `application/json`. |
-| 500         | `internal_error`       | An unexpected server error occurred.                     |
-| 500         | `apply_failed`         | The server failed to apply the configuration.            |
+`POST /api/apply` validates the supplied config before writing it. The config must contain:
+
+- A `plugin:hyprglass { ... }` block.
+- Required fields: `enabled`, `default_theme`, `default_preset`.
+- Numeric fields within their documented ranges:
+  - `blur_strength` (0–8)
+  - `blur_iterations` (1–5)
+  - `refraction_strength` (0–1)
+  - `chromatic_aberration` (0–1)
+  - `fresnel_strength` (0–1)
+  - `specular_strength` (0–1)
+  - `glass_opacity` (0–1)
+  - `edge_thickness` (0–0.15)
+  - `lens_distortion` (0–1)
+- A `decoration { ... }` block with `active_opacity`, `inactive_opacity`, and `fullscreen_opacity` between 0 and 1.
 
 ## 6. curl Examples Summary
 
@@ -302,22 +215,20 @@ All error responses follow a consistent JSON format:
 # Health check
 curl -s http://localhost:8765/api/health | jq
 
-# Get current config
-curl -s http://localhost:8765/api/config | jq
+# Get current config as text
+curl -s http://localhost:8765/api/config | jq -r '.config'
 
-# Generate a preview
+# Open a preview (replace ... with full conf content)
 curl -s -X POST http://localhost:8765/api/preview \
   -H "Content-Type: application/json" \
-  -d '{"theme":"tokyonight","opacity":0.92,"blur":true}' | jq
+  -d '{"config":"plugin:hyprglass {\n  enabled = 1\n  ...\n}"}' | jq
 
 # Apply a configuration
 curl -s -X POST http://localhost:8765/api/apply \
   -H "Content-Type: application/json" \
-  -d '{"theme":"catppuccin","opacity":0.90,"blur":true}' | jq
-
-# List profiles
-curl -s http://localhost:8765/api/profiles | jq
-
-# Load a saved profile
-curl -s -X POST http://localhost:8765/api/profile/tokyonight | jq
+  -d '{"config":"plugin:hyprglass {\n  enabled = 1\n  ...\n}"}' | jq
 ```
+
+## 7. Note on Profiles
+
+The Studio server does **not** expose profile list/load endpoints. Profiles are stored as `.conf` files in `~/.config/hypr/hyprglass-profiles/` and are applied with `HyprglassProfile.sh`. See [PROFILES.md](PROFILES.md) for details.
