@@ -54,7 +54,9 @@ def server_url(tmp_path, monkeypatch):
     thread.join(timeout=2)
 
 
-def _api_request(url: str, data: bytes, token: str | None = TEST_TOKEN) -> urllib.request.Request:
+def _api_request(
+    url: str, data: bytes, token: str | None = TEST_TOKEN
+) -> urllib.request.Request:
     """Build a POST request with the optional auth token."""
     headers = {"Content-Type": "application/json"}
     if token is not None:
@@ -101,9 +103,9 @@ def test_config_endpoint_returns_content(server_url, tmp_path, monkeypatch):
     assert "default_preset" in data.get("config", "")
 
 
-VALID_CONFIG = (
-    Path(__file__).resolve().parent / "fixtures" / "valid.conf"
-).read_text(encoding="utf-8")
+VALID_CONFIG = (Path(__file__).resolve().parent / "fixtures" / "valid.conf").read_text(
+    encoding="utf-8"
+)
 
 
 class FakePreviewProcess:

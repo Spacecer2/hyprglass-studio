@@ -1,4 +1,5 @@
 """Tests for scripts/ValidateHyprglassConf.sh."""
+
 from __future__ import annotations
 
 import subprocess
