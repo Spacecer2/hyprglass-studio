@@ -20,7 +20,7 @@ set -euo pipefail
 export XDG_CONFIG_HOME="{tmp_path}"
 export XDG_CACHE_HOME="{tmp_path}/cache"
 source "{PROFILE_SCRIPT}"
-PROFILES_DIR="{tmp_path / 'profiles'}"
+PROFILES_DIR="{tmp_path / "profiles"}"
 NOTIFIER="/bin/true"
 {setup}
 {func_call}
@@ -112,9 +112,7 @@ def test_export_and_import_archive(tmp_path: Path):
     # Clear profiles and re-import from archive.
     for conf in (tmp_path / "profiles").glob("*.conf"):
         conf.unlink()
-    import_result = _run_bash_function(
-        tmp_path, "", f'import_profile "{archive}"'
-    )
+    import_result = _run_bash_function(tmp_path, "", f'import_profile "{archive}"')
     assert import_result.returncode == 0, f"import failed: {import_result.stderr}"
     imported = tmp_path / "profiles" / "archived.conf"
     assert imported.exists()
@@ -151,7 +149,9 @@ def test_apply_profile_warns_on_hyprctl_failure(tmp_path: Path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     fake_hyprctl = fake_bin / "hyprctl"
-    fake_hyprctl.write_text("#!/bin/sh\necho 'mock hyprctl failure' >&2\nexit 1\n", encoding="utf-8")
+    fake_hyprctl.write_text(
+        "#!/bin/sh\necho 'mock hyprctl failure' >&2\nexit 1\n", encoding="utf-8"
+    )
     fake_hyprctl.chmod(0o755)
     setup = f'export PATH="{fake_bin}:$PATH"'
     result = _run_bash_function(tmp_path, setup, "apply_profile test")
