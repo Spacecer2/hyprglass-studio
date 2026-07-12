@@ -20,10 +20,14 @@ const app = document.getElementById('app');
 const savedState = loadState();
 let state = savedState.state;
 let activeSection = savedState.activeSection || 'global';
+let gpuStatus = { loading: true, data: null, error: null };
 
 render();
 wireEvents();
 persist();
+if (activeSection === 'gpu') {
+  refreshGpuStatus();
+}
 
 function loadState() {
   try {
@@ -142,6 +146,22 @@ async function sendConfig(kind) {
   return payload;
 }
 
+async function refreshGpuStatus() {
+  gpuStatus = { loading: true, data: null, error: null };
+  render();
+  try {
+    const response = await fetch('/api/gpu');
+    const payload = await response.json().catch(() => ({ ok: false, error: 'invalid response' }));
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.error || 'failed to fetch GPU status');
+    }
+    gpuStatus = { loading: false, data: payload, error: null };
+  } catch (error) {
+    gpuStatus = { loading: false, data: null, error: error.message };
+  }
+  render();
+}
+
 async function copyExport() {
   try {
     await navigator.clipboard.writeText(exportText());
@@ -252,6 +272,7 @@ function wireEvents() {
     if (action === 'download') return downloadExport();
     if (action === 'set-format') return setNested('output_format', event.target.dataset.format);
     if (action === 'set-theme') return setNested('preview_theme', event.target.dataset.theme);
+    if (action === 'refresh-gpu') return refreshGpuStatus();
     if (action === 'sample-layers') {
       setNested('layers.namespaces', 'waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi');
       setNested('layers.exclude_namespaces', '');
@@ -293,6 +314,7 @@ function render() {
           ${navButton('layers', 'Layer surfaces')}
           ${navButton('decoration', 'Decoration')}
           ${navButton('windowrules', 'Window rules')}
+          ${navButton('gpu', 'GPU dashboard')}
           ${navButton('export', 'Export')}
         </nav>
         <div class="meta">
@@ -396,6 +418,8 @@ function sectionTitle(section) {
       return 'Decoration settings';
     case 'windowrules':
       return 'Window rules';
+    case 'gpu':
+      return 'GPU dashboard';
     case 'export':
       return 'Export and preview';
     default:
@@ -413,11 +437,76 @@ function sectionDescription(section) {
       return 'Opacity settings for focused, unfocused, and fullscreen windows.';
     case 'windowrules':
       return 'Per-window glass rules and compatibility settings.';
+    case 'gpu':
+      return 'Live GPU utilization and auto-switching status.';
     case 'export':
       return 'Choose conf or Lua output, then copy or download the result.';
     default:
       return 'Global values that feed the plugin before theme-specific overrides.';
   }
+}
+
+function renderGpuSection() {
+  if (gpuStatus.loading) {
+    return `
+      <div class="panel">
+        <h3>GPU utilization</h3>
+        <p class="subhead">Reading GPU status from the system monitor...</p>
+        <div class="badge-row">
+          <span class="badge">Loading...</span>
+        </div>
+      </div>
+    `;
+  }
+
+  if (gpuStatus.error) {
+    return `
+      <div class="panel">
+        <h3>GPU utilization</h3>
+        <p class="subhead">Could not read GPU status.</p>
+        <div class="badge-row">
+          <span class="badge warn">${escapeHtml(gpuStatus.error)}</span>
+        </div>
+        <button class="action" data-action="refresh-gpu" style="margin-top:12px">Refresh</button>
+      </div>
+    `;
+  }
+
+  const data = gpuStatus.data || {};
+  const usage = data.gpu_usage;
+  const tool = data.gpu_tool || 'unknown';
+  const active = data.active_profile || 'unknown';
+  const saved = data.saved_profile || '(none)';
+  const usageBadge = usage == null
+    ? '<span class="badge warn">usage unknown</span>'
+    : `<span class="badge ${usage > 80 ? 'warn' : 'good'}">${usage}% usage</span>`;
+
+  return `
+    <div class="grid-two">
+      <div class="panel">
+        <h3>GPU utilization</h3>
+        <p class="subhead">Current GPU load as reported by ${escapeHtml(tool)}.</p>
+        <div class="badge-row">
+          ${usageBadge}
+          <span class="badge accent">tool: ${escapeHtml(tool)}</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Auto-switching state</h3>
+        <p class="subhead">Profiles managed by the GPU monitor daemon.</p>
+        <div class="badge-row">
+          <span class="badge">active: ${escapeHtml(active)}</span>
+          <span class="badge">saved: ${escapeHtml(saved)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h3>About GPU monitoring</h3>
+      <p class="subhead">Hyprglass can automatically switch to the gaming profile when GPU load crosses ${escapeHtml(String(data.high_threshold || 80))}% and restore the previous profile after it stays below ${escapeHtml(String(data.low_threshold || 40))}% for ${escapeHtml(String(data.low_duration || 60))}s.</p>
+      <p class="help">Run <code>HyprglassGPUMonitor.sh --daemon</code> to enable automatic switching. Use this dashboard to check live status.</p>
+      <button class="action" data-action="refresh-gpu">Refresh</button>
+    </div>
+  `;
 }
 
 function renderSection() {
@@ -472,6 +561,10 @@ function renderSection() {
         <button class="action" data-action="add-window-rule" style="margin-top:12px">Add rule</button>
       </div>
     `;
+  }
+
+  if (activeSection === 'gpu') {
+    return renderGpuSection();
   }
 
   if (activeSection === 'export') {

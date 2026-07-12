@@ -18,6 +18,7 @@ HOME = Path.home()
 CONFIG_PATH = HOME / ".config/hypr/UserConfigs/Hyprglass.conf"
 BACKUP_DIR = HOME / ".config/hypr/backups/hyprglass-studio"
 PREVIEW_DIR = Path("/tmp/hyprglass-studio")
+GPU_MONITOR = ROOT.parent / "scripts" / "HyprglassGPUMonitor.sh"
 
 lock = threading.Lock()
 active_preview: dict[str, Path] | None = None
@@ -145,6 +146,39 @@ def apply_flow(content: str) -> dict:
     return {"ok": True, "message": "applied", "backup": str(backup)}
 
 
+def get_gpu_status() -> dict:
+    """Run the GPU monitor in status mode and return a structured payload."""
+    if not GPU_MONITOR.exists():
+        return {"ok": False, "error": "GPU monitor script not found"}
+
+    result = subprocess.run(
+        ["bash", str(GPU_MONITOR), "--status"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return {"ok": False, "error": result.stderr.strip() or "GPU monitor failed"}
+
+    data: dict[str, object] = {"ok": True}
+    for line in result.stdout.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip().lower().replace(" ", "_")
+        value = value.strip()
+        if key == "gpu_usage":
+            # Value may be "unknown%" or "24%".
+            numeric = value.replace("%", "").strip()
+            data[key] = int(numeric) if numeric.isdigit() else None
+        elif key in {"high_threshold", "low_threshold", "low_duration"}:
+            numeric = value.strip()
+            data[key] = int(numeric) if numeric.isdigit() else None
+        else:
+            data[key] = value
+    return data
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -160,6 +194,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return json_response(self, {"ok": True, "config": ""})
             except Exception as exc:
                 return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+        if self.path == "/api/gpu":
+            return json_response(self, get_gpu_status())
         return super().do_GET()
 
     def do_POST(self):  # noqa: N802
