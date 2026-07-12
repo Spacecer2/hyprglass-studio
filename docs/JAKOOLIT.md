@@ -42,9 +42,9 @@ This is expected. Run the recovery hook described in the next section.
 
 ---
 
-## 3. `FixHyprglassSource.sh` usage
+## 3. `JaKooLitUpdateHook.sh` usage
 
-`FixHyprglassSource.sh` is the recovery script that repairs HyprGlass integration after JaKooLit has overwritten your config.
+`JaKooLitUpdateHook.sh` is the recovery script that repairs HyprGlass integration after JaKooLit has overwritten your config.
 
 **What it does:**
 
@@ -58,14 +58,14 @@ This is expected. Run the recovery hook described in the next section.
 
 ```bash
 cd ~/hyprglass-studio
-chmod +x FixHyprglassSource.sh
-./FixHyprglassSource.sh
+chmod +x scripts/JaKooLitUpdateHook.sh
+./scripts/JaKooLitUpdateHook.sh
 ```
 
 If the script was installed into your Hyprland config directory, you can also run:
 
 ```bash
-~/.config/hypr/FixHyprglassSource.sh
+~/.config/hypr/scripts/JaKooLitUpdateHook.sh
 ```
 
 After it finishes, reload Hyprland:
@@ -111,11 +111,7 @@ If you prefer to update JaKooLit manually, use this order:
 
 1. **Back up first.**
 
-   ```bash
-   cd ~/hyprglass-studio
-   chmod +x BackupConfig.sh
-   ./BackupConfig.sh
-   ```
+   The installer creates timestamped backups in `~/.config/hypr/backups/hyprglass-studio-YYYYMMDD-HHMMSS/` automatically. If you want a fresh backup before updating, re-run `install.sh --yes` or copy your current `~/.config/hypr/` directory somewhere safe.
 
 2. **Run JaKooLit's update.**
 
@@ -207,7 +203,7 @@ Then run the recovery script again.
 
 ### Restore from a backup
 
-If recovery fails, restore the backup created by the installer or `BackupConfig.sh`:
+If recovery fails, restore the backup created by the installer:
 
 ```bash
 cp ~/.config/hypr/backups/hyprland.conf.bak ~/.config/hypr/hyprland.conf
@@ -239,7 +235,7 @@ Use `JaKooLitUpdateHook.sh` (or your own wrapper) instead of running `copy.sh` d
 
 ### Back up before updates
 
-Run `BackupConfig.sh` before any dotfile update. Keep several backups so you can roll back if something goes wrong.
+Keep the installer's timestamped backups in `~/.config/hypr/backups/`. You can also manually copy `~/.config/hypr/` somewhere safe before any dotfile update so you can roll back if something goes wrong.
 
 ### Save presets and profiles
 
@@ -257,7 +253,7 @@ Store exported profiles outside `~/.config/hypr/` (for example, in `~/hyprglass-
 
 ### Avoid editing JaKooLit's core files directly
 
-Instead of editing `windowrules.conf` or `keybindings.conf` directly, add glass overrides in a separate file and source it. This makes `FixHyprglassSource.sh` simpler and less likely to conflict with future JaKooLit changes.
+Instead of editing `windowrules.conf` or `keybindings.conf` directly, add glass overrides in a separate file and source it. This makes `JaKooLitUpdateHook.sh` simpler and less likely to conflict with future JaKooLit changes.
 
 ### Summary checklist
 

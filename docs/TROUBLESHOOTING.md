@@ -52,7 +52,7 @@ blur {
 **Workaround:** If you need to apply custom values at startup, use `FixHyprglassValues.sh` as a startup script. It restores your desired configuration after the server initializes.
 
 ```bash
-~/.config/hypr/FixHyprglassValues.sh
+~/.config/hypr/scripts/FixHyprglassValues.sh
 ```
 
 ---
@@ -117,10 +117,10 @@ This file is not overwritten by wallust, so your settings stay intact.
 
 **Cause:** `copy.sh` replaces the entire `~/.config/hypr/` directory with a fresh default, wiping out Hyprglass files and configurations.
 
-**Fix:** After running `copy.sh`, run the recovery script to restore Hyprglass:
+**Fix:** After running `copy.sh`, run the recovery hook to restore Hyprglass:
 
 ```bash
-~/.config/hypr/FixHyprglassSource.sh
+~/.config/hypr/scripts/JaKooLitUpdateHook.sh
 ```
 
 This re-links and restores your Hyprglass configuration on top of the fresh Hyprland install.

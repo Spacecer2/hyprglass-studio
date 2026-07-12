@@ -33,7 +33,7 @@ yay -S wallust
 First, install the HyprGlass Hyprland plugin via hyprpm:
 
 ```bash
-hyprpm add https://github.com/hyprnux/hyprglass
+hyprpm add https://github.com/Spacecer2/hyprglass-studio
 hyprpm enable hyprglass
 ```
 
@@ -86,7 +86,7 @@ This will:
 - Generate a HyprGlass profile that preserves the same opacity/blur/rounding feel
 - Apply the generated profile immediately (omit `--apply` to review it first)
 
-For full JaKooLit integration and recovery steps after dotfile updates, see [docs/JAKOOLIT.md](docs/JAKOOLIT.md).
+For full JaKooLit integration and recovery steps after dotfile updates, see [JAKOOLIT.md](JAKOOLIT.md).
 
 ---
 
@@ -297,7 +297,7 @@ hyprctl reload
 ```bash
 # Reinstall the plugin
 hyprpm remove hyprglass
-hyprpm add https://github.com/hyprnux/hyprglass
+hyprpm add https://github.com/Spacecer2/hyprglass-studio
 hyprpm enable hyprglass
 hyprctl reload
 ```

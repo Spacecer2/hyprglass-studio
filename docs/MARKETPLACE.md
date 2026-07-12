@@ -40,7 +40,7 @@ Marketplace metadata lives in `profiles/registry.json`:
 {
   "version": "1.0.0",
   "updated": "2026-07-12",
-  "source": "https://github.com/neo/hyprglass-studio/tree/main/profiles/community",
+  "source": "https://github.com/Spacecer2/hyprglass-studio/tree/main/profiles/community",
   "profiles": [
     {
       "name": "catppuccin",
