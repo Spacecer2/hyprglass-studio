@@ -5,6 +5,7 @@ script in isolated bash processes and exercise individual functions with mocked
 paths.  The script already guards the daemon loop with
 `if [[ "${BASH_SOURCE[0]}" == "${0}" ]]` so sourcing only loads functions.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -16,7 +17,9 @@ VALIDATOR = PROJECT_ROOT / "scripts" / "ValidateHyprglassConf.sh"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
-def run_guard_function(tmp_path: Path, setup: str, func_call: str) -> subprocess.CompletedProcess:
+def run_guard_function(
+    tmp_path: Path, setup: str, func_call: str
+) -> subprocess.CompletedProcess:
     """Source HyprglassGuard.sh, run setup, then call a function.
 
     Paths are overridden so the guard never touches the user's real ~/.config.
@@ -53,7 +56,9 @@ def test_guard_script_exists():
 def test_validate_conf_succeeds(tmp_path):
     conf = tmp_path / "hypr" / "UserConfigs" / "Hyprglass.conf"
     conf.parent.mkdir(parents=True)
-    conf.write_text(FIXTURES.joinpath("valid.conf").read_text(encoding="utf-8"), encoding="utf-8")
+    conf.write_text(
+        FIXTURES.joinpath("valid.conf").read_text(encoding="utf-8"), encoding="utf-8"
+    )
     result = run_guard_function(tmp_path, "", "validate_conf")
     assert result.returncode == 0, f"validate_conf should succeed: {result.stderr}"
 
@@ -81,7 +86,9 @@ validate_conf
         text=True,
         check=False,
     )
-    assert result.returncode == 0, f"should pass when validator missing: {result.stderr}"
+    assert result.returncode == 0, (
+        f"should pass when validator missing: {result.stderr}"
+    )
 
 
 def test_find_known_good_returns_backup(tmp_path):

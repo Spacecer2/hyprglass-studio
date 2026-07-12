@@ -1,4 +1,5 @@
 """End-to-end integration tests for Hyprglass Studio components."""
+
 from __future__ import annotations
 
 import json
@@ -56,7 +57,9 @@ def server_url(tmp_path, monkeypatch):
     thread.join(timeout=2)
 
 
-def _api_request(url: str, data: bytes, token: str = TEST_TOKEN) -> urllib.request.Request:
+def _api_request(
+    url: str, data: bytes, token: str = TEST_TOKEN
+) -> urllib.request.Request:
     return urllib.request.Request(
         url,
         data=data,
@@ -65,7 +68,9 @@ def _api_request(url: str, data: bytes, token: str = TEST_TOKEN) -> urllib.reque
     )
 
 
-def test_shell_validator_accepts_server_written_config(server_url, tmp_path, monkeypatch):
+def test_shell_validator_accepts_server_written_config(
+    server_url, tmp_path, monkeypatch
+):
     """POST a valid config through the server, then validate the written file with the shell script."""
     config_path = tmp_path / "Hyprglass.conf"
     monkeypatch.setattr(app_module, "CONFIG_PATH", config_path)
@@ -86,7 +91,9 @@ def test_shell_validator_accepts_server_written_config(server_url, tmp_path, mon
         text=True,
         check=False,
     )
-    assert result.returncode == 0, f"Shell validator rejected server-written config: {result.stderr}"
+    assert result.returncode == 0, (
+        f"Shell validator rejected server-written config: {result.stderr}"
+    )
 
 
 def test_server_rejects_invalid_config(server_url):
@@ -110,7 +117,9 @@ def test_guard_restores_config_after_server_writes_invalid_state(tmp_path):
     # Seed known-good backup.
     conf.parent.mkdir(parents=True)
     conf.write_text(VALID_CONFIG, encoding="utf-8")
-    subprocess.run(["cp", "-a", str(conf), str(known_good_dir / "Hyprglass.conf")], check=True)
+    subprocess.run(
+        ["cp", "-a", str(conf), str(known_good_dir / "Hyprglass.conf")], check=True
+    )
 
     # Corrupt the live config.
     conf.write_text("this is not valid", encoding="utf-8")
@@ -135,7 +144,14 @@ check_config
 def test_installer_dry_run_completes():
     """The installer dry-run should reach the end without crashing."""
     result = subprocess.run(
-        ["bash", str(PROJECT_ROOT / "install.sh"), "--dry-run", "--yes", "--skip-plugin", "--skip-wallust"],
+        [
+            "bash",
+            str(PROJECT_ROOT / "install.sh"),
+            "--dry-run",
+            "--yes",
+            "--skip-plugin",
+            "--skip-wallust",
+        ],
         capture_output=True,
         text=True,
         check=False,

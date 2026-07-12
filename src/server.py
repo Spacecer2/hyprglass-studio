@@ -34,7 +34,9 @@ lock = threading.Lock()
 active_preview: dict[str, object] | None = None
 
 
-def json_response(handler: SimpleHTTPRequestHandler, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
+def json_response(
+    handler: SimpleHTTPRequestHandler, payload: dict, status: HTTPStatus = HTTPStatus.OK
+) -> None:
     data = json.dumps(payload).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
@@ -120,7 +122,12 @@ def validate_config(content: str) -> tuple[bool, list[str]]:
 
 
 def reload_hyprland() -> None:
-    subprocess.run(["hyprctl", "reload"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(
+        ["hyprctl", "reload"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def _check_token(handler: SimpleHTTPRequestHandler) -> bool:
@@ -215,12 +222,18 @@ class Handler(SimpleHTTPRequestHandler):
                     return json_response(self, {"ok": True, "config": content})
                 return json_response(self, {"ok": True, "config": ""})
             except Exception as exc:
-                return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return json_response(
+                    self,
+                    {"ok": False, "error": str(exc)},
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
         return super().do_GET()
 
     def do_POST(self):  # noqa: N802
         if self.path not in {"/api/preview", "/api/apply"}:
-            return json_response(self, {"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+            return json_response(
+                self, {"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND
+            )
         if not _check_token(self):
             return json_response(
                 self,
@@ -232,12 +245,20 @@ class Handler(SimpleHTTPRequestHandler):
             content = data.get("config", "")
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("missing config")
-            result = preview_flow(content) if self.path == "/api/preview" else apply_flow(content)
+            result = (
+                preview_flow(content)
+                if self.path == "/api/preview"
+                else apply_flow(content)
+            )
             return json_response(self, result)
         except ValueError as exc:
-            return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return json_response(
+                self, {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST
+            )
         except Exception as exc:  # noqa: BLE001
-            return json_response(self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return json_response(
+                self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
     def log_message(self, fmt, *args):  # noqa: A003
         return
@@ -245,17 +266,27 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default=os.environ.get("STUDIO_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.environ.get("STUDIO_PORT", "8765")))
+    parser.add_argument(
+        "--host", type=str, default=os.environ.get("STUDIO_HOST", "127.0.0.1")
+    )
+    parser.add_argument(
+        "--port", type=int, default=int(os.environ.get("STUDIO_PORT", "8765"))
+    )
     args = parser.parse_args()
 
     if args.host not in {"127.0.0.1", "localhost", "::1"}:
-        print(f"WARNING: Studio server binding to non-loopback address {args.host}. "
-              "Other machines may be able to reach this endpoint.", file=sys.stderr)
+        print(
+            f"WARNING: Studio server binding to non-loopback address {args.host}. "
+            "Other machines may be able to reach this endpoint.",
+            file=sys.stderr,
+        )
     if not STUDIO_TOKEN:
-        print("WARNING: Studio server running without STUDIO_TOKEN. "
-              "Set the STUDIO_TOKEN environment variable and send it as the "
-              "X-HyprGlass-Token header to protect state-changing endpoints.", file=sys.stderr)
+        print(
+            "WARNING: Studio server running without STUDIO_TOKEN. "
+            "Set the STUDIO_TOKEN environment variable and send it as the "
+            "X-HyprGlass-Token header to protect state-changing endpoints.",
+            file=sys.stderr,
+        )
 
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(PREVIEW_DIR, 0o700)

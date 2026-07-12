@@ -53,7 +53,9 @@ DEFAULT_ICON_NAME = "preferences-system-windows"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def run(cmd: list[str], capture: bool = True, check: bool = False) -> subprocess.CompletedProcess:
+def run(
+    cmd: list[str], capture: bool = True, check: bool = False
+) -> subprocess.CompletedProcess:
     """Run a command, suppressing stderr unless in debug mode."""
     if capture:
         return subprocess.run(cmd, capture_output=True, text=True, check=check)
@@ -88,7 +90,11 @@ def list_profiles() -> list[str]:
         for line in result.stdout.splitlines():
             # Strip ANSI color codes before parsing.
             stripped = _ANSI_RE.sub("", line.strip())
-            if not stripped or stripped.startswith("Available") or stripped.startswith("No profiles"):
+            if (
+                not stripped
+                or stripped.startswith("Available")
+                or stripped.startswith("No profiles")
+            ):
                 continue
             # Lines look like: "  profile - description" or "  -> profile - description"
             name = stripped.lstrip("→ ").split(" - ", 1)[0].strip()
@@ -98,7 +104,9 @@ def list_profiles() -> list[str]:
             return sorted(profiles)
 
     # Direct directory scan.
-    directory = PROFILES_DIR if PROFILES_DIR.exists() else SCRIPT_DIR.parent / "profiles"
+    directory = (
+        PROFILES_DIR if PROFILES_DIR.exists() else SCRIPT_DIR.parent / "profiles"
+    )
     if directory.exists():
         for conf in sorted(directory.glob("*.conf")):
             profiles.append(conf.stem)
@@ -276,7 +284,9 @@ def run_tray() -> int:
             for profile in profiles:
                 label = f"{'✓ ' if profile == active else ''}{profile}"
                 item = Gtk.MenuItem(label=label)
-                item.connect("activate", lambda _, p=profile: (apply_profile(p), rebuild_menu()))
+                item.connect(
+                    "activate", lambda _, p=profile: (apply_profile(p), rebuild_menu())
+                )
                 profile_menu.append(item)
             menu.append(profile_item)
 
@@ -303,6 +313,7 @@ def run_tray() -> int:
         indicator.set_menu(menu)
 
     rebuild_menu()
+
     # Refresh the label/menu periodically in case the profile changed externally.
     def refresh():
         indicator.set_label(f"Profile: {current_profile()}", "Profile: default")
@@ -327,14 +338,20 @@ def run_rofi() -> int:
     """Show a rofi menu with the same actions as the tray applet."""
     if not shutil.which("rofi"):
         print("Error: rofi is not installed.", file=sys.stderr)
-        print("Install rofi or run this on a system with GTK/AppIndicator support.", file=sys.stderr)
+        print(
+            "Install rofi or run this on a system with GTK/AppIndicator support.",
+            file=sys.stderr,
+        )
         return 1
 
     rofi_theme = os.environ.get("ROFI_THEME", "")
     active = current_profile()
     profiles = list_profiles()
 
-    entries = ["Open Studio", f"Toggle Glass (currently {'On' if glass_enabled() else 'Off'})"]
+    entries = [
+        "Open Studio",
+        f"Toggle Glass (currently {'On' if glass_enabled() else 'Off'})",
+    ]
     if profiles:
         entries.append("Profiles ▶")
     entries.append("Quit")
@@ -344,7 +361,9 @@ def run_rofi() -> int:
         args.extend(["-theme", rofi_theme])
     args.extend(["-theme-str", "window { width: 400px; }"])
 
-    result = subprocess.run(args, input="\n".join(entries), text=True, capture_output=True)
+    result = subprocess.run(
+        args, input="\n".join(entries), text=True, capture_output=True
+    )
     if result.returncode != 0 or not result.stdout.strip():
         return 0
 
@@ -372,7 +391,9 @@ def _rofi_profiles(active: str, profiles: list[str]) -> int:
         args.extend(["-theme", rofi_theme])
     args.extend(["-theme-str", "window { width: 400px; }"])
 
-    result = subprocess.run(args, input="\n".join(entries), text=True, capture_output=True)
+    result = subprocess.run(
+        args, input="\n".join(entries), text=True, capture_output=True
+    )
     if result.returncode != 0 or not result.stdout.strip():
         return 0
 
