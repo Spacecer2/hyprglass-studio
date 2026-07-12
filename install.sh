@@ -641,6 +641,10 @@ copy_configs() {
             local n
             n=$(find "${SCRIPT_DIR}/profiles" -maxdepth 1 -type f -name '*.conf' | wc -l)
             dry "Would copy ${n} profile(s) -> ${PROFILES_DIR}/"
+            if [[ -d "${SCRIPT_DIR}/profiles/themes" ]]; then
+                n=$(find "${SCRIPT_DIR}/profiles/themes" -maxdepth 1 -type f -name '*.conf' | wc -l)
+                dry "Would copy ${n} theme preset(s) -> ${PROFILES_DIR}/themes/"
+            fi
         fi
 
         progress_step "Copy scripts"
@@ -689,6 +693,17 @@ copy_configs() {
             ok "Copied ${profile_count} profile(s) -> ${PROFILES_DIR}/"
         else
             warn "No .conf profile files found in profiles/"
+        fi
+
+        # Copy bundled theme presets if they exist.
+        if [[ -d "${SCRIPT_DIR}/profiles/themes" ]]; then
+            mkdir -p "$PROFILES_DIR/themes"
+            local theme_count
+            theme_count=$(find "${SCRIPT_DIR}/profiles/themes" -maxdepth 1 -type f -name '*.conf' | wc -l)
+            if (( theme_count > 0 )); then
+                cp -a "${SCRIPT_DIR}/profiles/themes/"*.conf "$PROFILES_DIR/themes/" 2>/dev/null || true
+                ok "Copied ${theme_count} theme preset(s) -> ${PROFILES_DIR}/themes/"
+            fi
         fi
     fi
 
