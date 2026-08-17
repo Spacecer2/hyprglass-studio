@@ -20,8 +20,8 @@ optdepends=(
     'grim: screenshot integration'
     'slurp: screenshot region selection'
 )
-source=("${pkgname}-${pkgver}.tar.gz")
-sha256sums=('SKIP')
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('92a7dad8d52d9486a8a3df70a1ff4e0d1084f904e593cfdfbd20e36083e038d3')
 
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}/${pkgname}"
