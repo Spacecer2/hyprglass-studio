@@ -1,0 +1,21 @@
+pkgbase = hyprglass-studio
+	pkgdesc = Apple-style Liquid Glass effects for Hyprland with a web-based Studio UI
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/Spacecer2/hyprglass-studio
+	arch = any
+	license = MIT
+	depends = hyprland>=0.55
+	depends = python>=3.10
+	depends = python-websockets
+	depends = python-aiohttp
+	depends = python-aiofiles
+	depends = python-yaml
+	depends = jq
+	optdepends = wallust: wallpaper color sync
+	optdepends = grim: screenshot integration
+	optdepends = slurp: screenshot region selection
+	source = hyprglass-studio-1.0.0.tar.gz::https://github.com/Spacecer2/hyprglass-studio/archive/refs/tags/v1.0.0.tar.gz
+	sha256sums = 92a7dad8d52d9486a8a3df70a1ff4e0d1084f904e593cfdfbd20e36083e038d3
+
+pkgname = hyprglass-studio
