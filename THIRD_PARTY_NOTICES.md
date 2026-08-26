@@ -14,6 +14,7 @@ The bundled community and theme profiles use color palettes inspired by these pr
 | `profiles/community/solarized.conf` | [Solarized](https://ethanschoonover.com/solarized/) | MIT |
 | `profiles/themes/dracula.conf` | [Dracula](https://github.com/dracula/dracula) | MIT |
 | `profiles/themes/nord.conf` | [Nord](https://github.com/arcticicestudio/nord) | MIT |
+| `profiles/themes/tokyonight.conf` | [Tokyo Night](https://github.com/folke/tokyonight.nvim) | MIT |
 
 ## HyprGlass plugin
 
