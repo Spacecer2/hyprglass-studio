@@ -585,34 +585,33 @@ generate_hyprglass_conf() {
     trap 'rm -f "${tmp_conf}"' RETURN
 
     cat > "$tmp_conf" <<'EOF'
-# HyprGlass Studio Configuration
 plugin:hyprglass {
   enabled = 1
   default_theme = dark
   default_preset = glass
-  blur_strength = 3.4
-  blur_iterations = 2
-  refraction_strength = 0.96
-  chromatic_aberration = 0.7
-  fresnel_strength = 0.96
+  blur_strength = 0.0
+  blur_iterations = 3
+  refraction_strength = 0
+  chromatic_aberration = 1
+  fresnel_strength = 0
   specular_strength = 0.6
   glass_opacity = 1
-  edge_thickness = 0.14
-  lens_distortion = 0.42
-  tint_color = 0x99c1f122
-  dark:brightness = 1.1
-  dark:contrast = 1.2
-  dark:saturation = 1.15
-  dark:vibrancy = 0.7
-  dark:vibrancy_darkness = 0.52
-  dark:adaptive_dim = 0.65
+  edge_thickness = 0.078
+  lens_distortion = 1
+  tint_color = 0x99c1f110
+  dark:brightness = 1
+  dark:contrast = 1.6
+  dark:saturation = 1.41
+  dark:vibrancy = 0
+  dark:vibrancy_darkness = 1
+  dark:adaptive_dim = 0.84
   dark:adaptive_boost = 0.34
-  light:brightness = 1.05
+  light:brightness = 1.39
   light:contrast = 0.92
   light:saturation = 0.85
-  light:vibrancy = 0.12
+  light:vibrancy = 0
   light:vibrancy_darkness = 0
-  light:adaptive_dim = 0
+  light:adaptive_dim = 0.54
   light:adaptive_boost = 0.4
   layers:enabled = 1
   layers:namespaces = waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi
@@ -624,16 +623,16 @@ plugin:hyprglass {
 
 # Override Jakoolit defaults so HyprGlass has visible transparency to work with
 decoration {
-  active_opacity = 0.75
-  inactive_opacity = 0.65
+  active_opacity = 0.9
+  inactive_opacity = 0.75
   fullscreen_opacity = 1
 }
 
-# Per-window glass overrides
+# Compatibility opacity overrides so the effect is visible on opaque apps
+windowrule = match:tag browser, tag +hyprglass_enabled
+windowrule = match:tag browser, tag +hyprglass_preset_glass
 windowrule = match:class ^(waterfox)$, tag +browser
-windowrule = match:class ^(waterfox)$, tag +hyprglass_enabled
-windowrule = match:class ^(waterfox)$, tag +hyprglass_preset_glass
-windowrule = match:class ^(waterfox)$, opacity 0.75 0.65
+windowrule = match:class ^(waterfox)$, opacity 0.86 0.72
 EOF
 
     chmod 644 "$tmp_conf"
@@ -649,8 +648,8 @@ EOF
         fi
     else
         warn "External validator not found, using inline validation"
-        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$tmp_conf"; then
-            err "Validation failed: blur_strength is not 3.4"
+        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*[0-9]+\.?[0-9]*' "$tmp_conf"; then
+            err "Validation failed: blur_strength must be a number"
             validation_failed=true
         fi
         if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$tmp_conf"; then
