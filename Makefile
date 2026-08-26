@@ -31,6 +31,7 @@ install:
 	install -Dm644 assets/hyprglass-studio.png "$(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps/hyprglass-studio.png"
 	install -Dm644 README.md "$(DOC_DIR)/README.md"
 	install -Dm644 LICENSE "$(LICENSE_DIR)/LICENSE"
+	install -Dm644 THIRD_PARTY_NOTICES.md "$(LICENSE_DIR)/THIRD_PARTY_NOTICES.md"
 	install -Dm644 docs/INSTALLATION.md "$(DOC_DIR)/INSTALLATION.md"
 	install -Dm644 docs/CONFIGURATION.md "$(DOC_DIR)/CONFIGURATION.md" 2>/dev/null || true
 	install -Dm644 docs/PROFILES.md "$(DOC_DIR)/PROFILES.md" 2>/dev/null || true
@@ -59,9 +60,6 @@ clean:
 
 format:
 	ruff format .
-
-docs:
-	mkdocs build
 
 release:
 	git tag "$$(cat VERSION)"

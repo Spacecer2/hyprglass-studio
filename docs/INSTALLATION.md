@@ -66,7 +66,8 @@ The installer will:
 - Create timestamped backups of all files it modifies
 - Install the `hyprglass` plugin via `hyprpm`
 - Copy profiles, scripts, and wallust templates
-- Generate `Hyprglass.conf` and a startup fix script if missing
+- Generate `Hyprglass.conf` (glass on all windows by default) and a startup fix script if missing
+- Install the rofi theme (`rofi-hyprglass.rasi`) and a **HyprGlass Studio** desktop entry with icon, so the web UI is launchable from rofi/app menus
 - Patch `hyprland.conf` safely without overwriting dotfiles
 - Set executable permissions on helper scripts
 - Verify the installation and optionally reload Hyprland

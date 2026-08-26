@@ -10,7 +10,7 @@ Add a `plugin:hyprglass` section to your `hyprland.conf`:
 plugin:hyprglass {
     enabled = 1
     default_theme = dark
-    default_preset = default
+    default_preset = glass
     blur_strength = 2.0
     blur_iterations = 3
     refraction_strength = 0.6
@@ -30,7 +30,7 @@ plugin:hyprglass {
 |-----------|------|-------|---------|-------------|
 | `enabled` | int | `0`/`1` | `1` | Enable or disable the plugin entirely. |
 | `default_theme` | string | `dark`/`light` | `dark` | Theme applied at startup. |
-| `default_preset` | string | `default`/`glass`/`subtle`/`ui` | `default` | Preset applied at startup. The built-in presets are `default` (balanced), `glass` (strong), `subtle` (minimal), and `ui` (flat). |
+| `default_preset` | string | `default`/`glass`/`subtle`/`ui` | `glass` | Preset applied at startup. The shipped config uses `glass` so every window gets the full effect by default. The built-in presets are `default` (balanced), `glass` (strong), `subtle` (minimal), and `ui` (flat). |
 | `blur_strength` | float | `0`–`10` | `2.0` | Intensity of the background blur. |
 | `blur_iterations` | int | `1`–`5` | `3` | Number of blur passes (higher = smoother, costs more GPU). |
 | `refraction_strength` | float | `0`–`2` | `0.6` | Strength of the light-bending effect through glass. |
@@ -139,6 +139,8 @@ windowrule = match:class ^(kitty)$, tag +hyprglass_preset_subtle
 windowrule = match:class ^(thunar)$, tag +hyprglass_enabled
 ```
 
+> **Note:** The shipped profile script (`HyprglassProfile.sh`) resolves every profile window-rule action to full glass (`hyprglass_enabled`) — `disable`, `subtle`, and `minimal` actions no longer downgrade windows. With `default_preset = glass`, windows only get a weaker look if you write a `tag +hyprglass_preset_subtle` rule manually.
+
 ## Presets
 
 Presets are named bundles of plugin parameters. The built-in presets are:
@@ -162,7 +164,7 @@ Presets can be applied globally via `default_preset`, per-layer via `namespace_p
 plugin:hyprglass {
     enabled = 1
     default_theme = dark
-    default_preset = default
+    default_preset = glass
     blur_strength = 2.0
     blur_iterations = 3
     refraction_strength = 0.6

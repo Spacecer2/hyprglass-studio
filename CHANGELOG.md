@@ -5,6 +5,27 @@ All notable changes to HyprGlass Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-26 — "Crystal Clear"
+
+### Added
+- Glass on every window by default (`default_preset = glass`)
+- Rofi / app-menu launchable Studio web UI (desktop entry + icon)
+- Rofi theme (`rofi-hyprglass.rasi`) installed by the installer
+- App icon (`assets/hyprglass-studio.png`)
+- StartHyprglassStudio.sh / OpenHyprglassStudio.sh launcher scripts
+- Installer banner, phase sections, and polished summary output
+- Third-party attribution notices
+
+### Changed
+- Profile window-rule actions always resolve to full glass
+- Installer-generated `Hyprglass.conf` matches the tuned default settings
+- Version bumped to 1.1.0
+
+### Fixed
+- CI lint (ruff) violations in server, tray, and tests
+- Misaligned installer summary box
+- Fresh-minimal `hyprland.conf` missing the Studio `exec-once`
+
 ## [1.0.0] - 2026-07-12
 
 ### Added
