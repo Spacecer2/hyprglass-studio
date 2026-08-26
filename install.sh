@@ -37,6 +37,9 @@ STUDIO_EXEC="exec-once = ~/.config/hypr/scripts/StartHyprglassStudio.sh"
 DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 DESKTOP_FILE="${DESKTOP_DIR}/hyprglass-studio.desktop"
 
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
+ICON_DEST="${ICON_DIR}/hyprglass-studio.png"
+
 ROFI_THEMES_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes"
 ROFI_THEME_DEST="${ROFI_THEMES_DIR}/rofi-hyprglass.rasi"
 
@@ -836,8 +839,16 @@ EOF
 # ── Install desktop entry (rofi / app launcher) ──────────────────────────────
 install_desktop_file() {
     if $DRY_RUN; then
+        dry "Would install icon -> ${ICON_DEST}"
         dry "Would create ${DESKTOP_FILE}"
         return
+    fi
+
+    # Install the app icon alongside the desktop entry.
+    if [[ -f "${SCRIPT_DIR}/assets/hyprglass-studio.png" ]]; then
+        mkdir -p "$ICON_DIR"
+        cp -a "${SCRIPT_DIR}/assets/hyprglass-studio.png" "$ICON_DEST" 2>/dev/null || true
+        ok "Installed icon -> ${ICON_DEST}"
     fi
 
     if [[ -f "$DESKTOP_FILE" ]]; then
@@ -860,6 +871,7 @@ install_desktop_file() {
 Name=HyprGlass Studio
 Comment=Apple-style Liquid Glass effects for Hyprland
 Exec=${SCRIPTS_DIR}/OpenHyprglassStudio.sh
+Icon=${ICON_DEST}
 Type=Application
 Terminal=false
 Categories=System;Settings;

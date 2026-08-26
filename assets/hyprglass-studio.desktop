@@ -2,6 +2,7 @@
 Name=HyprGlass Studio
 Comment=Apple-style Liquid Glass effects for Hyprland
 Exec=hyprglass-studio
+Icon=hyprglass-studio
 Type=Application
 Terminal=false
 Categories=System;Settings;
