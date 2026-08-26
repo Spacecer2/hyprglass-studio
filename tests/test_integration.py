@@ -16,7 +16,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src import server as app_module  # noqa: E402
+from src import server as app_module
 
 VALIDATOR = PROJECT_ROOT / "scripts" / "ValidateHyprglassConf.sh"
 GUARD_SCRIPT = PROJECT_ROOT / "scripts" / "HyprglassGuard.sh"

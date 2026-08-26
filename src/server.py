@@ -14,7 +14,7 @@ import sys
 import tempfile
 import threading
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -62,7 +62,7 @@ def ensure_parent(path: Path) -> None:
 
 def backup_current(prefix: str) -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     backup = BACKUP_DIR / f"{prefix}-{stamp}.conf"
     if CONFIG_PATH.exists():
         shutil.copy2(CONFIG_PATH, backup)
@@ -74,7 +74,7 @@ def _preserve_default_preset(new_content: str) -> str:
         return new_content
     try:
         existing = CONFIG_PATH.read_text(encoding="utf-8")
-    except Exception:
+    except OSError:
         return new_content
     match = re.search(r"^\s*default_preset\s*=\s*(.+)$", existing, re.MULTILINE)
     if match:
@@ -184,7 +184,7 @@ def preview_flow(content: str) -> dict:
         reload_hyprland()
         try:
             proc = launch_kitty_preview()
-        except Exception as exc:
+        except OSError as exc:
             shutil.copy2(backup, CONFIG_PATH)
             reload_hyprland()
             return {"ok": False, "error": f"failed to launch preview: {exc}"}
@@ -244,7 +244,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_GET(self):  # noqa: N802
+    def do_GET(self):
         path = self._request_path(self.path)
         if path in {"/", "/index.html"}:
             if STUDIO_TOKEN:
@@ -258,7 +258,7 @@ class Handler(SimpleHTTPRequestHandler):
                     content = CONFIG_PATH.read_text(encoding="utf-8")
                     return json_response(self, {"ok": True, "config": content})
                 return json_response(self, {"ok": True, "config": ""})
-            except Exception as exc:
+            except OSError as exc:
                 return json_response(
                     self,
                     {"ok": False, "error": str(exc)},
@@ -266,7 +266,7 @@ class Handler(SimpleHTTPRequestHandler):
                 )
         return super().do_GET()
 
-    def do_POST(self):  # noqa: N802
+    def do_POST(self):
         path = self._request_path(self.path)
         if path not in {"/api/preview", "/api/apply"}:
             return json_response(
@@ -299,7 +299,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR
             )
 
-    def log_message(self, fmt, *args):  # noqa: A003
+    def log_message(self, fmt, *args):
         return
 
 
