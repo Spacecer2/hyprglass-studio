@@ -21,6 +21,7 @@ The tray applet shows the current HyprGlass profile and lets you:
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import re
 import shutil
@@ -29,8 +30,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+_LOGGER = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths and constants
@@ -90,11 +92,7 @@ def list_profiles() -> list[str]:
         for line in result.stdout.splitlines():
             # Strip ANSI color codes before parsing.
             stripped = _ANSI_RE.sub("", line.strip())
-            if (
-                not stripped
-                or stripped.startswith("Available")
-                or stripped.startswith("No profiles")
-            ):
+            if not stripped or stripped.startswith(("Available", "No profiles")):
                 continue
             # Lines look like: "  profile - description" or "  -> profile - description"
             name = stripped.lstrip("→ ").split(" - ", 1)[0].strip()
@@ -196,7 +194,7 @@ def build_icon_path() -> str | None:
     """Generate a simple 64x64 tray icon and return its PNG path."""
     try:
         from PIL import Image, ImageDraw
-    except Exception:
+    except ImportError:
         return None
 
     size = 64
@@ -243,12 +241,13 @@ def run_tray() -> int:
                 indicator_module = __import__("gi.repository", fromlist=[name])
                 indicator_module = getattr(indicator_module, name)
                 break
-            except Exception:
+            except (ImportError, ValueError, AttributeError) as exc:
+                _LOGGER.debug("Indicator module %s unavailable: %s", name, exc)
                 continue
 
         if indicator_module is None:
             raise ImportError("No AppIndicator implementation found")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - any tray dep failure falls back to rofi
         print(f"Tray dependencies not available: {exc}", file=sys.stderr)
         print("Falling back to rofi mode.", file=sys.stderr)
         return run_rofi()
@@ -362,7 +361,7 @@ def run_rofi() -> int:
     args.extend(["-theme-str", "window { width: 400px; }"])
 
     result = subprocess.run(
-        args, input="\n".join(entries), text=True, capture_output=True
+        args, input="\n".join(entries), text=True, capture_output=True, check=False
     )
     if result.returncode != 0 or not result.stdout.strip():
         return 0
@@ -392,7 +391,7 @@ def _rofi_profiles(active: str, profiles: list[str]) -> int:
     args.extend(["-theme-str", "window { width: 400px; }"])
 
     result = subprocess.run(
-        args, input="\n".join(entries), text=True, capture_output=True
+        args, input="\n".join(entries), text=True, capture_output=True, check=False
     )
     if result.returncode != 0 or not result.stdout.strip():
         return 0

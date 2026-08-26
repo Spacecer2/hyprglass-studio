@@ -32,6 +32,16 @@ HYPGLASS_CONF_DEST="${USER_CONFIGS_DIR}/${HYPGLASS_CONF_NAME}"
 FIX_SCRIPT_NAME="FixHyprglassValues.sh"
 FIX_SCRIPT_DEST="${SCRIPTS_DIR}/${FIX_SCRIPT_NAME}"
 HYPGLASS_EXEC="exec-once = ~/.config/hypr/scripts/${FIX_SCRIPT_NAME}"
+STUDIO_EXEC="exec-once = ~/.config/hypr/scripts/StartHyprglassStudio.sh"
+
+DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DESKTOP_FILE="${DESKTOP_DIR}/hyprglass-studio.desktop"
+
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
+ICON_DEST="${ICON_DIR}/hyprglass-studio.png"
+
+ROFI_THEMES_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/rofi/themes"
+ROFI_THEME_DEST="${ROFI_THEMES_DIR}/rofi-hyprglass.rasi"
 
 BACKUP_DIR="${HYPR_DIR}/backups/hyprglass-studio-$(date +%Y%m%d-%H%M%S)"
 
@@ -92,7 +102,27 @@ warn()  { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
 err()   { echo -e "${RED}[ERR ]${RESET}  $*" >&2; }
 fatal() { err "$*"; exit 1; }
 dry()   { echo -e "${MAGENTA}[DRY]${RESET}  $*"; }
-verb()  { $VERBOSE && echo -e "${DIM}[DBG ]${RESET}  $*" || true; }
+verb()   { $VERBOSE && echo -e "${DIM}[DBG ]${RESET}  $*" || true; }
+
+# ── UI helpers ───────────────────────────────────────────────────────────────
+print_box() {
+    local color="${1:-$GREEN}"
+    shift
+    local width=60 line="" i
+    for ((i = 0; i < width; i++)); do line+="═"; done
+    echo -e "${color}╔${line}╗${RESET}"
+    for text in "$@"; do
+        printf "${color}║${RESET}  %-*s  ${color}║${RESET}\n" "$((width - 4))" "$text"
+    done
+    echo -e "${color}╚${line}╝${RESET}"
+}
+
+section() {
+    local label="$1"
+    local n=$(( 54 - ${#label} ))
+    [[ $n -lt 3 ]] && n=3
+    printf "\n${BOLD}${CYAN}── %s %s${RESET}\n" "$label" "$(printf '─%.0s' $(seq 1 "$n"))"
+}
 
 # ── Progress ─────────────────────────────────────────────────────────────────
 progress_step() {
@@ -585,34 +615,33 @@ generate_hyprglass_conf() {
     trap 'rm -f "${tmp_conf}"' RETURN
 
     cat > "$tmp_conf" <<'EOF'
-# HyprGlass Studio Configuration
 plugin:hyprglass {
   enabled = 1
   default_theme = dark
-  default_preset = default
-  blur_strength = 3.4
-  blur_iterations = 2
-  refraction_strength = 0.96
-  chromatic_aberration = 0.7
-  fresnel_strength = 0.96
+  default_preset = glass
+  blur_strength = 0.0
+  blur_iterations = 3
+  refraction_strength = 0
+  chromatic_aberration = 1
+  fresnel_strength = 0
   specular_strength = 0.6
   glass_opacity = 1
-  edge_thickness = 0.14
-  lens_distortion = 0.42
-  tint_color = 0x99c1f122
-  dark:brightness = 1.1
-  dark:contrast = 1.2
-  dark:saturation = 1.15
-  dark:vibrancy = 0.7
-  dark:vibrancy_darkness = 0.52
-  dark:adaptive_dim = 0.65
+  edge_thickness = 0.078
+  lens_distortion = 1
+  tint_color = 0x99c1f110
+  dark:brightness = 1
+  dark:contrast = 1.6
+  dark:saturation = 1.41
+  dark:vibrancy = 0
+  dark:vibrancy_darkness = 1
+  dark:adaptive_dim = 0.84
   dark:adaptive_boost = 0.34
-  light:brightness = 1.05
+  light:brightness = 1.39
   light:contrast = 0.92
   light:saturation = 0.85
-  light:vibrancy = 0.12
+  light:vibrancy = 0
   light:vibrancy_darkness = 0
-  light:adaptive_dim = 0
+  light:adaptive_dim = 0.54
   light:adaptive_boost = 0.4
   layers:enabled = 1
   layers:namespaces = waybar, swaync, notifications, quickshell:overview, quickshell:bezel, rofi
@@ -624,16 +653,16 @@ plugin:hyprglass {
 
 # Override Jakoolit defaults so HyprGlass has visible transparency to work with
 decoration {
-  active_opacity = 0.75
-  inactive_opacity = 0.65
+  active_opacity = 0.9
+  inactive_opacity = 0.75
   fullscreen_opacity = 1
 }
 
-# Per-window glass overrides
+# Compatibility opacity overrides so the effect is visible on opaque apps
+windowrule = match:tag browser, tag +hyprglass_enabled
+windowrule = match:tag browser, tag +hyprglass_preset_glass
 windowrule = match:class ^(waterfox)$, tag +browser
-windowrule = match:class ^(waterfox)$, tag +hyprglass_enabled
-windowrule = match:class ^(waterfox)$, tag +hyprglass_preset_glass
-windowrule = match:class ^(waterfox)$, opacity 0.75 0.65
+windowrule = match:class ^(waterfox)$, opacity 0.86 0.72
 EOF
 
     chmod 644 "$tmp_conf"
@@ -649,8 +678,8 @@ EOF
         fi
     else
         warn "External validator not found, using inline validation"
-        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*3\.4' "$tmp_conf"; then
-            err "Validation failed: blur_strength is not 3.4"
+        if ! grep -qE '^[[:space:]]*blur_strength[[:space:]]*=[[:space:]]*[0-9]+\.?[0-9]*' "$tmp_conf"; then
+            err "Validation failed: blur_strength must be a number"
             validation_failed=true
         fi
         if grep -qE '^[[:space:]]*windowrule[[:space:]]*v2' "$tmp_conf"; then
@@ -807,6 +836,56 @@ EOF
     ok "Generated ${FIX_SCRIPT_DEST}"
 }
 
+# ── Install desktop entry (rofi / app launcher) ──────────────────────────────
+install_desktop_file() {
+    if $DRY_RUN; then
+        dry "Would install icon -> ${ICON_DEST}"
+        dry "Would create ${DESKTOP_FILE}"
+        return
+    fi
+
+    # Install the app icon alongside the desktop entry.
+    if [[ -f "${SCRIPT_DIR}/assets/hyprglass-studio.png" ]]; then
+        mkdir -p "$ICON_DIR"
+        cp -a "${SCRIPT_DIR}/assets/hyprglass-studio.png" "$ICON_DEST" 2>/dev/null || true
+        ok "Installed icon -> ${ICON_DEST}"
+    fi
+
+    if [[ -f "$DESKTOP_FILE" ]]; then
+        if confirm "${DESKTOP_FILE} already exists. Overwrite?"; then
+            true
+        else
+            ok "Keeping existing ${DESKTOP_FILE}"
+            return
+        fi
+    fi
+
+    mkdir -p "$DESKTOP_DIR"
+
+    local tmp_desktop
+    tmp_desktop=$(mktemp "${DESKTOP_DIR}/.hyprglass-studio.desktop.XXXXXX")
+    trap 'rm -f "${tmp_desktop}"' RETURN
+
+    cat > "$tmp_desktop" <<EOF
+[Desktop Entry]
+Name=HyprGlass Studio
+Comment=Apple-style Liquid Glass effects for Hyprland
+Exec=${SCRIPTS_DIR}/OpenHyprglassStudio.sh
+Icon=${ICON_DEST}
+Type=Application
+Terminal=false
+Categories=System;Settings;
+Keywords=hyprland;glass;transparency;blur;
+StartupNotify=false
+EOF
+
+    chmod 644 "$tmp_desktop"
+    mv -f "$tmp_desktop" "$DESKTOP_FILE"
+    trap - RETURN
+
+    ok "Installed desktop entry -> ${DESKTOP_FILE}"
+}
+
 # ── Copy project files ───────────────────────────────────────────────────────
 copy_configs() {
     log "Installing configuration files..."
@@ -844,6 +923,11 @@ copy_configs() {
             local n
             n=$(find "${SCRIPT_DIR}/templates" -maxdepth 1 -type f | wc -l)
             dry "Would copy ${n} template(s) -> ${WALLUST_TEMPLATES_DIR}/"
+        fi
+
+        progress_step "Rofi theme"
+        if [[ -f "${SCRIPT_DIR}/templates/rofi-hyprglass.rasi" ]]; then
+            dry "Would copy templates/rofi-hyprglass.rasi -> ${ROFI_THEME_DEST}"
         fi
 
         progress_step "Done"
@@ -902,6 +986,14 @@ copy_configs() {
             cp -a "${SCRIPT_DIR}/templates/"* "$WALLUST_TEMPLATES_DIR/" 2>/dev/null || true
             ok "Copied ${template_count} template(s) -> ${WALLUST_TEMPLATES_DIR}/"
         fi
+    fi
+
+    # Install rofi theme so the profile menu renders with the glass look
+    progress_step "Rofi theme"
+    if [[ -f "${SCRIPT_DIR}/templates/rofi-hyprglass.rasi" ]]; then
+        mkdir -p "$ROFI_THEMES_DIR"
+        cp -a "${SCRIPT_DIR}/templates/rofi-hyprglass.rasi" "$ROFI_THEME_DEST" 2>/dev/null || true
+        ok "Copied rofi theme -> ${ROFI_THEME_DEST}"
     fi
 
     progress_step "Done"
@@ -994,6 +1086,7 @@ patch_hyprland_conf() {
 # Minimal hyprland.conf generated by HyprGlass Studio installer
 ${HYPGLASS_CONF_SRC}
 ${HYPGLASS_EXEC}
+${STUDIO_EXEC}
 EOF
             chmod 644 "$tmp_hypr"
             mv -f "$tmp_hypr" "$HYPRLAND_CONF"
@@ -1003,6 +1096,7 @@ EOF
             warn "Add the following lines manually:"
             echo "    ${HYPGLASS_CONF_SRC}"
             echo "    ${HYPGLASS_EXEC}"
+            echo "    ${STUDIO_EXEC}"
         fi
         echo ""
         return
@@ -1041,27 +1135,30 @@ EOF
         ok "Added source line: ${HYPGLASS_CONF_SRC}"
     fi
 
-    # 2. Ensure exec-once line is present
+    # 2. Ensure exec-once lines are present
     # For JaKooLit, prefer Startup_Apps.conf
     local exec_target="$HYPRLAND_CONF"
     if $IS_JAKOOLIT && [[ -f "$STARTUP_CONF" ]]; then
         exec_target="$STARTUP_CONF"
     fi
 
-    if file_contains "$exec_target" "$HYPGLASS_EXEC"; then
-        ok "exec-once line already present in $(basename "$exec_target")"
-    else
-        if grep -qE '^exec-once\s*=' "$exec_target"; then
-            local last_exec
-            last_exec=$(grep -nE '^exec-once\s*=' "$exec_target" | tail -1 | cut -d: -f1) || true
-            sed -i "${last_exec}a\\${HYPGLASS_EXEC}" "$exec_target"
+    local exec_line
+    for exec_line in "$HYPGLASS_EXEC" "$STUDIO_EXEC"; do
+        if file_contains "$exec_target" "$exec_line"; then
+            ok "exec-once line already present in $(basename "$exec_target")"
         else
-            {
-                printf '\n# HyprGlass Studio startup fix\n%s\n' "$HYPGLASS_EXEC"
-            } >> "$exec_target"
+            if grep -qE '^exec-once\s*=' "$exec_target"; then
+                local last_exec
+                last_exec=$(grep -nE '^exec-once\s*=' "$exec_target" | tail -1 | cut -d: -f1) || true
+                sed -i "${last_exec}a\\${exec_line}" "$exec_target"
+            else
+                {
+                    printf '\n# HyprGlass Studio startup fix\n%s\n' "$exec_line"
+                } >> "$exec_target"
+            fi
+            ok "Added exec-once line to $(basename "$exec_target")"
         fi
-        ok "Added exec-once line to $(basename "$exec_target")"
-    fi
+    done
 
     # 3. For JaKooLit, also add keybindings in Keybinds.conf if it exists
     if $IS_JAKOOLIT && [[ -f "$KEYBINDS_CONF" ]]; then
@@ -1136,6 +1233,13 @@ verify_installation() {
     else
         err "FixHyprglassValues.sh missing or not executable"
         issues=$((issues + 1))
+    fi
+
+    # Check desktop entry
+    if [[ -f "$DESKTOP_FILE" ]]; then
+        ok "Desktop entry installed (rofi / app launcher)"
+    else
+        warn "Desktop entry not found: ${DESKTOP_FILE}"
     fi
 
     # Check profile switcher
@@ -1236,7 +1340,6 @@ maybe_reload() {
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 print_summary() {
-    local box_width=66
     local title
     if $DRY_RUN; then
         title="Dry run complete — no changes were made"
@@ -1245,11 +1348,7 @@ print_summary() {
     fi
 
     echo ""
-    echo -e "${GREEN}╔$(printf '═%.0s' $(seq 1 $box_width))╗${RESET}"
-    printf "${GREEN}║${RESET}  %-${box_width}s${GREEN}║${RESET}\n" ""
-    printf "${GREEN}║${RESET}  %-64s${GREEN}  ║${RESET}\n" "$title"
-    printf "${GREEN}║${RESET}  %-${box_width}s${GREEN}║${RESET}\n" ""
-    echo -e "${GREEN}╚$(printf '═%.0s' $(seq 1 $box_width))╝${RESET}"
+    print_box "$GREEN" "$title"
     echo ""
 
     if ! $DRY_RUN; then
@@ -1257,6 +1356,7 @@ print_summary() {
         echo "    Reload Hyprland:  hyprctl reload"
         echo "    Cycle profile:    SUPER + G"
         echo "    Profile menu:     SUPER + SHIFT + G"
+        echo "    Open Studio UI:   launch HyprGlass Studio from rofi/app menu"
         echo "    Apply profile:    HyprglassProfile.sh apply <profile>"
         echo ""
         echo -e "  ${BOLD}Available profiles:${RESET}"
@@ -1271,6 +1371,7 @@ print_summary() {
         echo "    ${PROFILES_DIR}/"
         echo "    ${SCRIPTS_DIR}/"
         echo "    ${WALLUST_TEMPLATES_DIR}/"
+        echo "    ${DESKTOP_FILE}"
         echo ""
         echo -e "  ${BOLD}Backup:${RESET} ${BACKUP_DIR}"
         echo ""
@@ -1291,20 +1392,29 @@ main() {
     validate_target_paths
 
     echo ""
-    echo -e "${BOLD}HyprGlass Studio Installer${RESET}"
+    print_box "$CYAN" \
+        "HyprGlass Studio — Apple Liquid Glass for Hyprland" \
+        "Real-time glass for the Hyprland Wayland compositor"
     if $DRY_RUN; then
-        echo -e "${YELLOW}  ── DRY RUN MODE ──${RESET}"
+        echo -e "${YELLOW}  ── DRY RUN MODE — no changes will be made ──${RESET}"
     fi
-    echo "────────────────────────────────────────────────────────────"
     echo ""
 
+    section "Prerequisites"
     detect_jakoolit
     check_prereqs
+
+    section "Backup"
     backup_configs
+
+    section "Installation"
     install_plugin
     install_wallust
     copy_configs
+    install_desktop_file
     patch_hyprland_conf
+
+    section "Finishing up"
     make_executable
     verify_installation
     maybe_reload

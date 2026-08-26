@@ -11,7 +11,8 @@
 # HyprGlass Studio
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status: Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](#security-features)
+[![Version: 1.1.0 "Crystal Clear"](https://img.shields.io/badge/version-1.1.0--Crystal%20Clear-7dd3fc.svg)](CHANGELOG.md)
+[![Status: Production Ready](https://img.shields.io/badge/status-production--ready-brightgreen.svg)](#features)
 [![GitHub stars](https://img.shields.io/github/stars/Spacecer2/hyprglass-studio?style=social)](https://github.com/Spacecer2/hyprglass-studio)
 [![GitHub issues](https://img.shields.io/github/issues/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/issues)
 [![Last commit](https://img.shields.io/github/last-commit/Spacecer2/hyprglass-studio)](https://github.com/Spacecer2/hyprglass-studio/commits/master)
@@ -54,14 +55,14 @@ Release goals and version targets are tracked in [docs/VERSION-PLANNING.md](docs
 
 ## Demo
 
-<!-- Replace with an actual screen recording GIF -->
 ![HyprGlass Studio Demo](screenshots/demo.gif)
 
 ---
 
 ## Features
 
-- 🪟 **Glass Effect on Windows & Layer Surfaces** — Apply blur, opacity, and color tint to any window or layer-shell surface in real time.
+- 🪟 **Glass on Every Window by Default** — Ships with `default_preset = glass`, so the full liquid-glass look (blur, refraction, chromatic aberration, specular) applies to all windows out of the box — browsers, terminals, video players and games included.
+- 🌐 **Rofi / App-Menu Launchable** — A desktop entry with a bundled icon is installed, so the Studio web UI is one launcher click away.
 - 🎨 **Wallust Color Sync** — Automatically extract dominant colors from your wallpaper and use them to tint glass surfaces for a cohesive look.
 - 🔀 **Session Profiles** — Switch between presets like *Gaming*, *Coding*, and *Movies* with a single command or hotkey.
 - 🖥️ **Web-based Studio UI** — A local dashboard for live-tuning glass parameters, previewing changes, and exporting configs.
@@ -71,8 +72,6 @@ Release goals and version targets are tracked in [docs/VERSION-PLANNING.md](docs
 ---
 
 ## Screenshots
-
-<!-- Replace the paths below with actual screenshots -->
 
 | Glass Effect | Studio UI | Profile Switch |
 |:---:|:---:|:---:|
@@ -176,7 +175,7 @@ hyprpm list | grep -i hyprglass
 
 **1. Launch the Studio UI**
 
-After running the installer:
+After running the installer, open **HyprGlass Studio** from your rofi / app menu (a desktop entry and icon are installed), or launch it from a terminal:
 
 ```bash
 hyprglass-studio

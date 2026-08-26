@@ -22,6 +22,11 @@
 
 ---
 
+### Q: Why is glass applied to every window now?
+**A:** HyprGlass Studio ships with `default_preset = glass`, so the full glass preset applies to all windows out of the box — browsers, terminals, video players and games included. Set `default_preset = default` in `Hyprglass.conf` if you'd rather only explicitly-tagged windows get glass.
+
+---
+
 ### Q: Why does glass work on waybar but not kitty?
 **A:** Layer surfaces use a different rendering path. Windows need transparency.
 

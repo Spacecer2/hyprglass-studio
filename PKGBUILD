@@ -1,6 +1,6 @@
 # Maintainer: Spacecer2 <https://github.com/Spacecer2>
 pkgname=hyprglass-studio
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Apple-style Liquid Glass effects for Hyprland with a web-based Studio UI"
 arch=('any')
@@ -20,8 +20,8 @@ optdepends=(
     'grim: screenshot integration'
     'slurp: screenshot region selection'
 )
-source=("${pkgname}-${pkgver}.tar.gz")
-sha256sums=('SKIP')
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('70580a9ff089a58ecef1d7ab2407b9db7df451d4fb34e1e46ea42cc793d36c15')
 
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}" || cd "${srcdir}/${pkgname}"

@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-
 PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 REQUIRED_SECTIONS = {"glass", "theme", "decoration"}
 

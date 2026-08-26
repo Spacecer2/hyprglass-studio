@@ -11,6 +11,16 @@ The `HyprglassProfile.sh menu` command uses rofi to display the list of HyprGlas
 - Accent highlighting for the selected item
 - A prompt that matches the HyprGlass Studio color palette
 
+## Launching the Studio Web UI
+
+The installer also drops a **HyprGlass Studio** desktop entry (with a bundled icon) into `~/.local/share/applications/`, so the web UI is launchable straight from rofi's app launcher:
+
+```bash
+rofi -show drun
+```
+
+Select **HyprGlass Studio** — or run `~/.config/hypr/scripts/OpenHyprglassStudio.sh` directly. It starts the Studio server if it isn't already running and opens `http://localhost:8765` in your browser.
+
 ## Installation Location
 
 The installer copies the theme from the repository to:
