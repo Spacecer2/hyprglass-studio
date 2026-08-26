@@ -589,7 +589,7 @@ generate_hyprglass_conf() {
 plugin:hyprglass {
   enabled = 1
   default_theme = dark
-  default_preset = default
+  default_preset = glass
   blur_strength = 3.4
   blur_iterations = 2
   refraction_strength = 0.96

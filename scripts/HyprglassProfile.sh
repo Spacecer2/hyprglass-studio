@@ -367,9 +367,6 @@ apply_profile() {
         validate_value "$match" match || continue
 
         case "$action" in
-            disable) tag="hyprglass_disabled" ;;
-            subtle|minimal) tag="hyprglass_preset_subtle" ;;
-            full|default) tag="hyprglass_enabled" ;;
             ui) tag="hyprglass_preset_ui" ;;
             *) tag="hyprglass_enabled" ;;
         esac
