@@ -75,19 +75,19 @@ The delay ensures each keyword is applied before the next one is read by the plu
 
 ---
 
-## Glass preset overrides my settings
+## Glass preset overrides my individual settings
 
-**Symptom:** You customize individual glass values, but after applying a preset or restarting, they get replaced.
+**Symptom:** You customize individual glass values, but the `glass` preset values win after applying or restarting.
 
-**Cause:** `default_preset = glass` is set in the config, which applies the full glass preset and overwrites all individual settings.
+**Cause:** `default_preset = glass` is the shipped default so every window gets the full liquid-glass look. A preset intentionally overrides the individual base values (that's what makes it a preset).
 
-**Fix:**
+**Fix (if you want your manual values to win):**
 
 ```ini
 default_preset = default
 ```
 
-**Why this works:** Setting `default_preset = default` prevents any preset from being applied automatically, preserving your individual customizations.
+**Why this works:** Setting `default_preset = default` prevents any preset from being applied automatically, so your individual customizations are preserved. Glass on every window by default is the intended out-of-the-box behavior.
 
 ---
 
