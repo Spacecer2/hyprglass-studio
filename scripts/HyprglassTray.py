@@ -92,9 +92,7 @@ def list_profiles() -> list[str]:
         for line in result.stdout.splitlines():
             # Strip ANSI color codes before parsing.
             stripped = _ANSI_RE.sub("", line.strip())
-            if not stripped or stripped.startswith(
-                ("Available", "No profiles")
-            ):
+            if not stripped or stripped.startswith(("Available", "No profiles")):
                 continue
             # Lines look like: "  profile - description" or "  -> profile - description"
             name = stripped.lstrip("→ ").split(" - ", 1)[0].strip()
